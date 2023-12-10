@@ -324,6 +324,18 @@ instance
           assert_bot x
           return x
 
+instance
+  ( Typeable ty1,
+    Derive ty1,
+    Typeable ty2,
+    Derive ty2
+  ) =>
+  Derive ('TFun ty1 ty2)
+  where
+  derive n = do
+    v2 <- derive n
+    lambda $ \_ -> return v2
+
 -- | Types for which conditional branches can be pushed to the leaves
 -- of two values.
 class Zippable ty where
