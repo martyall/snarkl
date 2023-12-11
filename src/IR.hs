@@ -94,7 +94,7 @@ exp_seq e1 e2 =
     (_, _) -> ESeq [e1, e2]
 
 toCoreExpr :: (Show a) => Exp a -> Core.Exp a
-toCoreExpr = either error id . toCoreExpr'
+toCoreExpr = either error id . toCoreExpr' . applyLambdas
 
 toCoreExpr' :: (Show a) => Exp a -> Either String (Core.Exp a)
 toCoreExpr' = \case
