@@ -96,7 +96,9 @@ library
     parallel 		>=3.2,
     hspec               >=2.0,
     process		>=1.2,
-    Cabal               >=1.22
+    Cabal               >=1.22,
+    transformers,
+    errors
   
   hs-source-dirs:      src, 
                        src/testsuite/tests,
