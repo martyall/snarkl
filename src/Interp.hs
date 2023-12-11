@@ -191,4 +191,128 @@ interp_texp: TESeq (TEAssert (TEVar 3) (TEVar 1)) (TESeq (TEAssert (TEVar 4) (TE
 
 interp_texp: exp: (var 3 := var 1; var 4 := var 2; var 5 := var 0; var 7 := var 6; var 8 := var 7; var 9 := var 7; var 10 := var 3; var 11 := var 3; var 12 := var 5; var 13 := if var 12 then var 10 else var 11; var 14 := var 7; var 15 := var 13*var 14; var 16 := var 7; var 17 := var 15*var 16; var 18 := var 3; var 19 := var 17*var 18; var 20 := var 3; var 21 := var 3; var 22 := var 3; var 23 := var 4; var 24 := var 19*var 20; var 25 := if var 23 then var 21 else var 22; var 26 := var 8*var 9; var 27 := var 24*var 25; var 28 := var 3; var 29 := 2 % 1; (); var 31 := var 28+var 29; var 7 := var 31; var 8 := var 7; var 9 := var 7; var 10 := var 3; var 11 := var 3; var 12 := var 5; var 13 := if var 12 then var 10 else var 11; var 14 := var 7; var 15 := var 13*var 14; var 16 := var 7; var 17 := var 15*var 16; var 18 := var 3; var 19 := var 17*var 18; var 20 := var 3; var 21 := var 3; var 22 := var 3; var 23 := var 4; var 24 := var 19*var 20; var 25 := if var 23 then var 21 else var 22; var 26 := var 8*var 9; var 27 := var 24*var 25; var 26-var 27)
 
+TESeq
+  (TEAssert (TEVar 3) (TEVar 1))
+  (TESeq
+    (TEAssert (TEVar 4) (TEVar 2))
+    (TESeq
+      (TEAssert (TEVar 5) (TEVar 0))
+      (TESeq
+        (TEAssert (TEVar 28) (TEVar 3))
+        (TESeq
+          (TEAssert (TEVar 29) (TEVal 2 % 1))
+          (TESeq
+            (TEAssert (TEVar 30)
+            (TEAbs 6 (TEBinop - (TEVar 26) (TEVar 27))))
+            (TESeq
+              (TEAssert (TEVar 31)
+              (TEBinop + (TEVar 28) (TEVar 29)))
+              (TEApp (TEVar 30) (TEVar 31))))))))
+TEAssert
+
+prog1 :: Snarkl.Comp 'TField
+prog1 =
+  let prog :: (Bool, (Rational, Bool)) -> Rational
+      prog (x, (y, z)) =
+        let u = y + 2
+            v = if z then y else y
+            w = if x then y else y
+         in u * u - (w * u * u * y * y * v)
+
+         interp_texp: TESeq (TEAssert (TEVar 3) (TEVar 1)) (TESeq (TEAssert (TEVar 4) (TEVar 2)) (TESeq (TEAssert (TEVar 5) (TEVar 0)) (TESeq (TEAssert (TEVar 28) (TEVar 3)) (TESeq (TEAssert (TEVar 29) (TEVal 2 % 1)) (TESeq (TEAssert (TEVar 30) (TEAbs 6 (TEBinop - (TEVar 26) (TEVar 27)))) (TESeq (TEAssert (TEVar 31) (TEBinop + (TEVar 28) (TEVar 29))) (TEApp (TEVar 30) (TEVar 31))))))))
+interp_texp: exp: (var 3 := var 1; var 4 := var 2; var 5 := var 0;
+
+var 28 := var 3;
+var 29 := 2 % 1;
+var 31 := var 28 + var 29;
+var 26 - var 27)
+
+var 3 := var 1;
+var 4 := var 2;
+var 5 := var 0;
+
+var 7 := var 6; # bad
+
+var 8 := var 7;
+var 9 := var 7;
+
+var 10 := var 3;
+var 11 := var 3;
+
+var 12 := var 5;
+
+var 13 := if var 12 then var 10 else var 11;
+
+var 14 := var 7;
+
+var 15 := var 13 * var 14;
+
+var 16 := var 7;
+
+var 17 := var 15 * var 16;
+
+var 18 := var 3;
+
+var 19 := var 17 * var 18;
+
+var 20 := var 3;
+var 21 := var 3;
+var 22 := var 3;
+
+var 23 := var 4;
+
+var 24 := var 19 * var 20;
+
+var 25 := if var 23 then var 21 else var 22;
+
+var 26 := var 8*var 9;
+
+var 27 := var 24*var 25;
+
+var 28 := var 3;
+
+var 29 := 2 % 1;
+
+var 31 := var 28 + var 29;
+
+var 7 := var 31;
+
+var 8 := var 7;
+var 9 := var 7;
+
+var 10 := var 3;
+var 11 := var 3;
+
+var 12 := var 5;
+
+var 13 := if var 12 then var 10 else var 11;
+
+var 14 := var 7;
+
+var 15 := var 13*var 14;
+
+var 16 := var 7;
+
+var 17 := var 15*var 16;
+
+var 18 := var 3;
+
+var 19 := var 17*var 18;
+
+var 20 := var 3;
+var 21 := var 3;
+var 22 := var 3;
+
+var 23 := var 4;
+
+var 24 := var 19*var 20;
+
+var 25 := if var 23 then var 21 else var 22;
+
+var 26 := var 8*var 9;
+
+var 27 := var 24*var 25;
+
+var 26-var 27)
+
 -}

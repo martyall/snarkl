@@ -3,6 +3,9 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use camelCase" #-}
 
 module SyntaxMonad
   ( -- | Computation monad
@@ -47,6 +50,8 @@ module SyntaxMonad
     get_addr,
     guard,
     add_objects,
+    withNoAssertions,
+    AssertionRecordStatus (..),
   )
 where
 
@@ -169,12 +174,15 @@ type ObjMap =
     )
     ObjBind -- maps to result r
 
+data AssertionRecordStatus = RecordAssertion | NoRecordAssertion deriving (Eq, Show)
+
 data Env = Env
   { next_var :: Int,
     next_loc :: Int,
     input_vars :: [Int],
     obj_map :: ObjMap,
-    anal_map :: Map.Map Var AnalBind -- supporting simple constprop analyses
+    anal_map :: Map.Map Var AnalBind, -- supporting simple constprop analyses
+    assertion_recording :: AssertionRecordStatus
   }
   deriving (Show)
 
@@ -292,20 +300,52 @@ get (TEBot, _) = return TEBot
 get (a, i) = guarded_get_addr a i
 
 -- | Smart constructor for TEAssert
+te_assert :: (Typeable ty) => TExp ty Rational -> TExp ty Rational -> State Env (TExp 'TUnit Rational)
 te_assert x@(TEVar _) e =
   do
     e_bot <- is_bot e
     e_true <- is_true e
     e_false <- is_false e
-    case (e_bot, e_true, e_false) of
-      (TEVal VTrue, _, _) -> assert_bot x >> return (TEAssert x e)
-      (_, TEVal VTrue, _) -> assert_true x >> return (TEAssert x e)
-      (_, _, TEVal VTrue) -> assert_false x >> return (TEAssert x e)
-      _ -> return $ TEAssert x e
+    _ <- case (e_bot, e_true, e_false) of
+      (TEVal VTrue, _, _) -> assert_bot x
+      (_, TEVal VTrue, _) -> assert_true x
+      (_, _, TEVal VTrue) -> assert_false x
+      _ -> return $ TEVal VUnit
+    State
+      ( \s ->
+          case assertion_recording s of
+            RecordAssertion -> Right (TEAssert x e, s)
+            NoRecordAssertion -> Right (TEVal VUnit, s)
+      )
 te_assert _ e =
   fail_with $
     ErrMsg $
       "in te_assert, expected var but got " ++ show e
+
+withNoAssertions :: (Typeable ty) => Comp ty -> Comp ty
+withNoAssertions c = do
+  _ <-
+    State
+      ( \s ->
+          Right
+            ( unit,
+              s
+                { assertion_recording = NoRecordAssertion
+                }
+            )
+      )
+  res <- c
+  _ <-
+    State
+      ( \s ->
+          Right
+            ( unit,
+              s
+                { assertion_recording = RecordAssertion
+                }
+            )
+      )
+  return res
 
 -- | Update array 'a' at position 'i' to expression 'e'. We special-case
 -- variable and location expressions, because they're representable untyped

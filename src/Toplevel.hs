@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use camelCase" #-}
 module Toplevel
   ( -- * Interpret Snarkl Computations
     comp_interp,
@@ -144,6 +147,7 @@ texp_of_comp mf =
             []
             Map.empty
             Map.empty
+            RecordAssertion
         )
 
 ------------------------------------------------------

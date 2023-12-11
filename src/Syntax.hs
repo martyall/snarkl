@@ -700,7 +700,7 @@ lambda f = do
     TEVar x -> do
       -- probably this is introducing scope leak because assertions are created which
       -- refer to the variable x.
-      res <- f (TEVar x)
+      res <- f _x
       return $ TEAbs x res
     _ -> error "impossible: lambda"
 
@@ -714,7 +714,7 @@ curry ::
 curry f a = do
   lambda $ \b -> do
     p <- pair a b
-    f p
+    withNoAssertions (f p)
 
 uncurry ::
   (Typeable a) =>
