@@ -141,7 +141,6 @@ texp_of_comp mf =
         ( Env
             (fromInteger 0)
             (fromInteger 0)
-            (fromInteger 0)
             []
             Map.empty
             Map.empty

@@ -98,7 +98,8 @@ library
     process		>=1.2,
     Cabal               >=1.22,
     transformers,
-    errors
+    errors,
+    aeson
   
   hs-source-dirs:      src, 
                        src/testsuite/tests,

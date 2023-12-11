@@ -1,8 +1,10 @@
 {-# LANGUAGE GADTs #-}
+{-# HLINT ignore "Use camelCase" #-}
+{-# HLINT ignore "Use guards" #-}
+{-# HLINT ignore "Use lambda-case" #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use camelCase" #-}
 
 module Interp
   ( interp,
@@ -13,9 +15,10 @@ where
 import Common
 import Control.Monad
 import Control.Monad.Cont (MonadTrans (lift))
-import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import Control.Monad.Trans.Maybe (MaybeT (..))
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import Debug.Trace (traceM)
 import Errors
 import Expr
 import Field
@@ -50,6 +53,7 @@ add_binds :: [(IntMap.Key, Maybe a1)] -> InterpM a1 (Maybe a2)
 add_binds binds =
   InterpM (\rho -> Right (IntMap.union (IntMap.fromList binds) rho, Nothing))
 
+lookup_var :: (Show a) => IntMap.Key -> InterpM a (Maybe a)
 lookup_var x =
   InterpM
     ( \rho -> case IntMap.lookup x rho of
@@ -85,120 +89,6 @@ bool_of_field v =
         Just b -> return b
     )
 
-interp_unop ::
-  (Field a) =>
-  TUnop ty1 ty2 ->
-  TExp ty1 a ->
-  InterpM a (Maybe a)
-interp_unop op e2 =
-  do
-    mv2 <- interp_texp e2
-    case mv2 of
-      Nothing -> return Nothing
-      Just v2 ->
-        case op of
-          TUnop ZEq -> return $ Just $ field_of_bool (v2 == zero)
-
-interp_binop ::
-  (Field a) =>
-  TOp ty1 ty2 ty3 ->
-  TExp ty1 a ->
-  TExp ty2 a ->
-  InterpM a (Maybe a)
-interp_binop op e1 e2 =
-  do
-    mv1 <- interp_texp e1
-    mv2 <- interp_texp e2
-    case (mv1, mv2) of
-      (Nothing, _) -> return Nothing
-      (_, Nothing) -> return Nothing
-      (Just v1, Just v2) ->
-        do
-          v <- interp_val_binop v1 v2
-          return $ Just v
-  where
-    interp_val_binop v1 v2 =
-      case op of
-        TOp Add -> return $ v1 `add` v2
-        TOp Sub -> return $ v1 `add` (neg v2)
-        TOp Mult -> return $ v1 `mult` v2
-        TOp Div ->
-          case inv v2 of
-            Nothing -> raise_err $ ErrMsg $ show v2 ++ " not invertible"
-            Just v2' -> return $ v1 `mult` v2'
-        TOp And -> interp_boolean_binop v1 v2
-        TOp Or -> interp_boolean_binop v1 v2
-        TOp XOr -> interp_boolean_binop v1 v2
-        TOp BEq -> interp_boolean_binop v1 v2
-        TOp Eq -> return $ field_of_bool $ v1 == v2
-
-    interp_boolean_binop v1 v2 =
-      do
-        b1 <- bool_of_field v1
-        b2 <- bool_of_field v2
-        let b = case op of
-              TOp And -> b1 && b2
-              TOp Or -> b1 || b2
-              TOp XOr -> (b1 && not b2) || (b2 && not b1)
-              TOp BEq -> b1 == b2
-              _ -> fail_with $ ErrMsg "internal error in interp_binop"
-         in return $ field_of_bool b
-
-{-}
-interp_binop_expr ::
-  (Field a) =>
-  Op ->
-  Exp a ->
-  Exp a ->
-  MaybeT (InterpM a) a
-interp_binop_expr op e1 e2 =
-  do
-    mv1 <- interp_expr e1
-    mv2 <- interp_expr e2
-    case (mv1, mv2) of
-      (Nothing, _) -> return Nothing
-      (_, Nothing) -> return Nothing
-      (Just v1, Just v2) ->
-        do
-          v <- interp_val_binop v1 v2
-          return $ Just v
-  where
-    interp_val_binop v1 v2 =
-      case op of
-        TOp Add -> return $ v1 `add` v2
-        TOp Sub -> return $ v1 `add` (neg v2)
-        TOp Mult -> return $ v1 `mult` v2
-        TOp Div ->
-          case inv v2 of
-            Nothing -> raise_err $ ErrMsg $ show v2 ++ " not invertible"
-            Just v2' -> return $ v1 `mult` v2'
-        TOp And -> interp_boolean_binop v1 v2
-        TOp Or -> interp_boolean_binop v1 v2
-        TOp XOr -> interp_boolean_binop v1 v2
-        TOp BEq -> interp_boolean_binop v1 v2
-        TOp Eq -> return $ field_of_bool $ v1 == v2
-
-    interp_boolean_binop v1 v2 =
-      do
-        b1 <- bool_of_field v1
-        b2 <- bool_of_field v2
-        let b = case op of
-              TOp And -> b1 && b2
-              TOp Or -> b1 || b2
-              TOp XOr -> (b1 && not b2) || (b2 && not b1)
-              TOp BEq -> b1 == b2
-              _ -> fail_with $ ErrMsg "internal error in interp_binop"
-         in return $ field_of_bool b
--}
-interp_val :: (Field a) => Val ty a -> InterpM a a
-interp_val v =
-  case v of
-    VField v' -> return v'
-    VTrue -> return $ field_of_bool True
-    VFalse -> return $ field_of_bool False
-    VUnit -> return one
-    VLoc _ -> raise_err $ ErrMsg "location in source program"
-
 interp_texp ::
   ( Eq a,
     Show a,
@@ -206,95 +96,99 @@ interp_texp ::
   ) =>
   TExp ty1 a ->
   InterpM a (Maybe a)
-interp_texp e = runMaybeT $ interp_expr (exp_of_texp e)
+interp_texp e = do
+  traceM $ "interp_texp: " ++ show e
+  let _exp = exp_of_texp e
+  traceM $ "interp_texp: exp: " ++ show _exp
+  interp_expr _exp
 
---  case e of
---    TEVar (TVar x) -> lookup_var x
---    TEVal v -> interp_val v >>= return . Just
---    TEUnop op e2 -> interp_unop op e2
---    TEBinop op e1 e2 -> interp_binop op e1 e2
---    TEIf eb e1 e2 ->
---      do
---        mv <- interp_texp eb
---        case_of_field
---          mv
---          ( \mb -> case mb of
---              Nothing -> return Nothing
---              Just b -> if b then interp_texp e1 else interp_texp e2
---          )
---    TEAssert e1 e2 ->
---      case (e1, e2) of
---        (TEVar (TVar x), _) ->
---          do
---            v2 <- interp_texp e2
---            add_binds [(x, v2)]
---        (_, _) -> raise_err $ ErrMsg $ show e1 ++ " not a variable"
---    TESeq e1 e2 ->
---      do
---        interp_texp e1
---        interp_texp e2
---    TEBot -> return Nothing
-
+interp :: (Field a) => IntMap a -> TExp ty1 a -> Either ErrMsg (Env a, Maybe a)
 interp rho e = runInterpM (interp_texp e) $ IntMap.map Just rho
-
-interp_binop_expr :: (Field a) => Op -> a -> Exp a -> MaybeT (InterpM a) a
-interp_binop_expr _op =
-  let op a b = case _op of
-        Add -> pure $ a `add` b
-        Sub -> pure $ a `add` neg b
-        Mult -> pure $ a `mult` b
-        Div -> pure $
-          case inv b of
-            Nothing -> fail_with $ ErrMsg $ show b ++ " not invertible"
-            Just b' -> a `mult` b'
-        And -> interp_boolean_binop a b
-        Or -> interp_boolean_binop a b
-        XOr -> interp_boolean_binop a b
-        BEq -> interp_boolean_binop a b
-        Eq -> pure $ field_of_bool $ a == b
-   in \a e2 ->
-        do
-          v2 <- interp_expr e2
-          op a v2
-  where
-    interp_boolean_binop :: (Field a) => a -> a -> MaybeT (InterpM a) a
-    interp_boolean_binop a b =
-      do
-        b1 <- lift $ bool_of_field a
-        b2 <- lift $ bool_of_field b
-        case _op of
-          And -> return $ field_of_bool $ b1 && b2
-          Or -> return $ field_of_bool $ b1 || b2
-          XOr -> return $ field_of_bool $ (b1 && not b2) || (b2 && not b1)
-          BEq -> return $ field_of_bool $ b1 == b2
-          _ -> fail_with $ ErrMsg "internal error in interp_binop"
 
 interp_expr ::
   (Field a) =>
   Exp a ->
-  MaybeT (InterpM a) a
+  InterpM a (Maybe a)
 interp_expr e = case e of
-  EVar x -> MaybeT $ lookup_var x
-  EVal v -> pure v
+  EVar x -> do
+    traceM $ "interp_expr: EVar " ++ show x
+    lookup_var x
+  EVal v -> pure $ Just v
   EUnop op e2 -> do
     v2 <- interp_expr e2
-    case op of
-      ZEq -> return $ field_of_bool (v2 == zero)
+    case v2 of
+      Nothing -> pure Nothing
+      Just v2' -> case op of
+        ZEq -> return $ Just $ field_of_bool (v2' == zero)
   EBinop op _es -> case _es of
-    [] -> mzero
+    [] -> fail_with $ ErrMsg $ "empty binary args"
     (a : as) -> do
       b <- interp_expr a
       foldM (interp_binop_expr op) b as
   EIf eb e1 e2 ->
     do
-      b <- interp_expr eb >>= lift . bool_of_field
-      if b then interp_expr e1 else interp_expr e2
+      mb <- interp_expr eb
+      case mb of
+        Nothing -> pure Nothing
+        Just _b -> bool_of_field _b >>= \b -> if b then interp_expr e1 else interp_expr e2
   EAssert e1 e2 ->
     case (e1, e2) of
       (EVar x, _) ->
         do
           v2 <- interp_expr e2
-          MaybeT $ add_binds [(x, Just v2)]
-      (_, _) -> lift $ raise_err $ ErrMsg $ show e1 ++ " not a variable"
+          add_binds [(x, v2)]
+      (_, _) -> raise_err $ ErrMsg $ show e1 ++ " not a variable"
   ESeq es -> last <$> mapM interp_expr es
-  EUnit -> return one
+  EUnit -> return $ Just one
+  where
+    interp_binop_expr :: (Field a) => Op -> Maybe a -> Exp a -> InterpM a (Maybe a)
+    interp_binop_expr _ Nothing _ = return Nothing
+    interp_binop_expr _op (Just a1) _exp = do
+      ma2 <- interp_expr _exp
+      case ma2 of
+        Nothing -> return Nothing
+        Just a2 -> Just <$> op a1 a2
+      where
+        op :: (Field a) => a -> a -> InterpM a a
+        op a b = case _op of
+          Add -> pure $ a `add` b
+          Sub -> pure $ a `add` neg b
+          Mult -> pure $ a `mult` b
+          Div -> pure $
+            case inv b of
+              Nothing -> fail_with $ ErrMsg $ show b ++ " not invertible"
+              Just b' -> a `mult` b'
+          And -> interp_boolean_binop a b
+          Or -> interp_boolean_binop a b
+          XOr -> interp_boolean_binop a b
+          BEq -> interp_boolean_binop a b
+          Eq -> pure $ field_of_bool $ a == b
+        interp_boolean_binop :: (Field a) => a -> a -> InterpM a a
+        interp_boolean_binop a b =
+          do
+            b1 <- bool_of_field a
+            b2 <- bool_of_field b
+            case _op of
+              And -> return $ field_of_bool $ b1 && b2
+              Or -> return $ field_of_bool $ b1 || b2
+              XOr -> return $ field_of_bool $ (b1 && not b2) || (b2 && not b1)
+              BEq -> return $ field_of_bool $ b1 == b2
+              _ -> fail_with $ ErrMsg "internal error in interp_binop"
+
+{-
+examples: Impossible after IR simplicifaction:
+
+interp_texp: TESeq (TEAssert (TEVar 3) (TEVar 1)) (TESeq (TEAssert (TEVar 4) (TEVar 2)) (TESeq (TEAssert (TEVar 5) (TEVar 0)) (TESeq (TEAssert (TEVar 7) (TEVar 6)) (TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 3)) (TESeq (TEAssert (TEVar 11) (TEVar 3)) (TESeq (TEAssert (TEVar 12) (TEVar 5)) (TESeq (TEAssert (TEVar 13) (TEIf (TEVar 12) (TEVar 10) (TEVar 11))) (TESeq (TEAssert (TEVar 14) (TEVar 7)) (TESeq (TEAssert (TEVar 15) (TEBinop * (TEVar 13) (TEVar 14))) (TESeq (TEAssert (TEVar 16) (TEVar 7)) (TESeq (TEAssert (TEVar 17) (TEBinop * (TEVar 15) (TEVar 16))) (TESeq (TEAssert (TEVar 18) (TEVar 3)) (TESeq (TEAssert (TEVar 19) (TEBinop * (TEVar 17) (TEVar 18))) (TESeq (TEAssert (TEVar 20) (TEVar 3)) (TESeq (TEAssert (TEVar 21) (TEVar 3)) (TESeq (TEAssert (TEVar 22) (TEVar 3)) (TESeq (TEAssert (TEVar 23) (TEVar 4)) (TESeq (TEAssert (TEVar 24) (TEBinop * (TEVar 19) (TEVar 20))) (TESeq (TEAssert (TEVar 25) (TEIf (TEVar 23) (TEVar 21) (TEVar 22))) (TESeq (TEAssert (TEVar 26) (TEBinop * (TEVar 8) (TEVar 9))) (TESeq (TEAssert (TEVar 27) (TEBinop * (TEVar 24) (TEVar 25))) (TESeq (TEAssert (TEVar 28) (TEVar 3)) (TESeq (TEAssert (TEVar 29) (TEVal 2 % 1))
+
+(TESeq
+  (TEAssert
+    (TEVar 30)
+    (TEAbs 6 (TESeq (TEAssert (TEVar 7) (TEVar 6)) (TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 3)) (TESeq (TEAssert (TEVar 11) (TEVar 3)) (TESeq (TEAssert (TEVar 12) (TEVar 5)) (TESeq (TEAssert (TEVar 13) (TEIf (TEVar 12) (TEVar 10) (TEVar 11))) (TESeq (TEAssert (TEVar 14) (TEVar 7)) (TESeq (TEAssert (TEVar 15) (TEBinop * (TEVar 13) (TEVar 14))) (TESeq (TEAssert (TEVar 16) (TEVar 7)) (TESeq (TEAssert (TEVar 17) (TEBinop * (TEVar 15) (TEVar 16))) (TESeq (TEAssert (TEVar 18) (TEVar 3)) (TESeq (TEAssert (TEVar 19) (TEBinop * (TEVar 17) (TEVar 18))) (TESeq (TEAssert (TEVar 20) (TEVar 3)) (TESeq (TEAssert (TEVar 21) (TEVar 3)) (TESeq (TEAssert (TEVar 22) (TEVar 3)) (TESeq (TEAssert (TEVar 23) (TEVar 4)) (TESeq (TEAssert (TEVar 24) (TEBinop * (TEVar 19) (TEVar 20))) (TESeq (TEAssert (TEVar 25) (TEIf (TEVar 23) (TEVar 21) (TEVar 22))) (TESeq (TEAssert (TEVar 26) (TEBinop * (TEVar 8) (TEVar 9))) (TESeq (TEAssert (TEVar 27) (TEBinop * (TEVar 24) (TEVar 25))) (TEBinop - (TEVar 26) (TEVar 27)))))))))))))))))))))))))
+
+     (TESeq (TEAssert (TEVar 31) (TEBinop + (TEVar 28) (TEVar 29))) (TEApp (TEVar 30) (TEVar 31))))
+
+interp_texp: TESeq (TEAssert (TEVar 3) (TEVar 1)) (TESeq (TEAssert (TEVar 4) (TEVar 2)) (TESeq (TEAssert (TEVar 5) (TEVar 0)) (TESeq (TEAssert (TEVar 7) (TEVar 6)) (TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 3)) (TESeq (TEAssert (TEVar 11) (TEVar 3)) (TESeq (TEAssert (TEVar 12) (TEVar 5)) (TESeq (TEAssert (TEVar 13) (TEIf (TEVar 12) (TEVar 10) (TEVar 11))) (TESeq (TEAssert (TEVar 14) (TEVar 7)) (TESeq (TEAssert (TEVar 15) (TEBinop * (TEVar 13) (TEVar 14))) (TESeq (TEAssert (TEVar 16) (TEVar 7)) (TESeq (TEAssert (TEVar 17) (TEBinop * (TEVar 15) (TEVar 16))) (TESeq (TEAssert (TEVar 18) (TEVar 3)) (TESeq (TEAssert (TEVar 19) (TEBinop * (TEVar 17) (TEVar 18))) (TESeq (TEAssert (TEVar 20) (TEVar 3)) (TESeq (TEAssert (TEVar 21) (TEVar 3)) (TESeq (TEAssert (TEVar 22) (TEVar 3)) (TESeq (TEAssert (TEVar 23) (TEVar 4)) (TESeq (TEAssert (TEVar 24) (TEBinop * (TEVar 19) (TEVar 20))) (TESeq (TEAssert (TEVar 25) (TEIf (TEVar 23) (TEVar 21) (TEVar 22))) (TESeq (TEAssert (TEVar 26) (TEBinop * (TEVar 8) (TEVar 9))) (TESeq (TEAssert (TEVar 27) (TEBinop * (TEVar 24) (TEVar 25))) (TESeq (TEAssert (TEVar 28) (TEVar 3)) (TESeq (TEAssert (TEVar 29) (TEVal 2 % 1)) (TESeq (TEAssert (TEVar 30) (TEAbs 6 (TESeq (TEAssert (TEVar 7) (TEVar 6)) (TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 3)) (TESeq (TEAssert (TEVar 11) (TEVar 3)) (TESeq (TEAssert (TEVar 12) (TEVar 5)) (TESeq (TEAssert (TEVar 13) (TEIf (TEVar 12) (TEVar 10) (TEVar 11))) (TESeq (TEAssert (TEVar 14) (TEVar 7)) (TESeq (TEAssert (TEVar 15) (TEBinop * (TEVar 13) (TEVar 14))) (TESeq (TEAssert (TEVar 16) (TEVar 7)) (TESeq (TEAssert (TEVar 17) (TEBinop * (TEVar 15) (TEVar 16))) (TESeq (TEAssert (TEVar 18) (TEVar 3)) (TESeq (TEAssert (TEVar 19) (TEBinop * (TEVar 17) (TEVar 18))) (TESeq (TEAssert (TEVar 20) (TEVar 3)) (TESeq (TEAssert (TEVar 21) (TEVar 3)) (TESeq (TEAssert (TEVar 22) (TEVar 3)) (TESeq (TEAssert (TEVar 23) (TEVar 4)) (TESeq (TEAssert (TEVar 24) (TEBinop * (TEVar 19) (TEVar 20))) (TESeq (TEAssert (TEVar 25) (TEIf (TEVar 23) (TEVar 21) (TEVar 22))) (TESeq (TEAssert (TEVar 26) (TEBinop * (TEVar 8) (TEVar 9))) (TESeq (TEAssert (TEVar 27) (TEBinop * (TEVar 24) (TEVar 25))) (TEBinop - (TEVar 26) (TEVar 27))))))))))))))))))))))))) (TESeq (TEAssert (TEVar 31) (TEBinop + (TEVar 28) (TEVar 29))) (TEApp (TEVar 30) (TEVar 31)))))))))))))))))))))))))))))
+
+interp_texp: exp: (var 3 := var 1; var 4 := var 2; var 5 := var 0; var 7 := var 6; var 8 := var 7; var 9 := var 7; var 10 := var 3; var 11 := var 3; var 12 := var 5; var 13 := if var 12 then var 10 else var 11; var 14 := var 7; var 15 := var 13*var 14; var 16 := var 7; var 17 := var 15*var 16; var 18 := var 3; var 19 := var 17*var 18; var 20 := var 3; var 21 := var 3; var 22 := var 3; var 23 := var 4; var 24 := var 19*var 20; var 25 := if var 23 then var 21 else var 22; var 26 := var 8*var 9; var 27 := var 24*var 25; var 28 := var 3; var 29 := 2 % 1; (); var 31 := var 28+var 29; var 7 := var 31; var 8 := var 7; var 9 := var 7; var 10 := var 3; var 11 := var 3; var 12 := var 5; var 13 := if var 12 then var 10 else var 11; var 14 := var 7; var 15 := var 13*var 14; var 16 := var 7; var 17 := var 15*var 16; var 18 := var 3; var 19 := var 17*var 18; var 20 := var 3; var 21 := var 3; var 22 := var 3; var 23 := var 4; var 24 := var 19*var 20; var 25 := if var 23 then var 21 else var 22; var 26 := var 8*var 9; var 27 := var 24*var 25; var 26-var 27)
+
+-}

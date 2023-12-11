@@ -8,8 +8,12 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use camelCase" #-}
 
 module TExpr
   ( Val (..),
@@ -22,14 +26,12 @@ module TExpr
     TVar (..),
     Loc,
     TLoc (..),
-    TLambdaVar (..),
     boolean_vars_of_texp,
     var_of_texp,
     loc_of_texp,
     te_seq,
     last_seq,
     exp_of_texp,
-    ir_of_texp,
   )
 where
 
@@ -83,8 +85,6 @@ instance Eq (TVar ty) where
 instance Show (TVar ty) where
   show (TVar x) = show x
 
-newtype TLambdaVar (ty :: Ty) = TLambdaVar LambdaVar
-
 type Loc = Int
 
 newtype TLoc (ty :: Ty) = TLoc Loc
@@ -112,7 +112,6 @@ data Val :: Ty -> * -> * where
 
 data TExp :: Ty -> * -> * where
   TEVar :: TVar ty -> TExp ty a
-  TELambdaVar :: TLambdaVar ty -> TExp ty a
   TEVal :: Val ty a -> TExp ty a
   TEUnop ::
     ( Typeable ty1
@@ -132,7 +131,7 @@ data TExp :: Ty -> * -> * where
   TEAssert :: (Typeable ty) => TExp ty a -> TExp ty a -> TExp 'TUnit a
   TESeq :: TExp 'TUnit a -> TExp ty2 a -> TExp ty2 a
   TEBot :: (Typeable ty) => TExp ty a
-  TEAbs :: (Typeable ty, Typeable ty1) => TLambdaVar ty -> TExp ty1 a -> TExp ('TFun ty ty1) a
+  TEAbs :: (Typeable ty, Typeable ty1) => TVar ty -> TExp ty1 a -> TExp ('TFun ty ty1) a
   TEApp :: (Typeable ty, Typeable ty1) => TExp ('TFun ty ty1) a -> TExp ty a -> TExp ty1 a
 
 exp_of_val :: (Field a) => Val ty a -> Exp a
@@ -163,10 +162,9 @@ ir_of_texp te = case te of
     IR.EIf (ir_of_texp te1) (ir_of_texp te2) (ir_of_texp te3)
   TEAssert te1 te2 ->
     IR.EAssert (ir_of_texp te1) (ir_of_texp te2)
-  TESeq te1 te2 -> IR.exp_seq (ir_of_texp te1) (ir_of_texp te2)
+  TESeq te1 te2 -> IR.ESeq (ir_of_texp te1) (ir_of_texp te2)
   TEBot -> IR.EUnit
-  TELambdaVar (TLambdaVar v) -> IR.ELambdaVar v
-  TEAbs (TLambdaVar v) e -> IR.EAbs v (ir_of_texp e)
+  TEAbs (TVar v) e -> IR.EAbs v (ir_of_texp e)
   TEApp e1 e2 -> IR.EApp (ir_of_texp e1) (ir_of_texp e2)
 
 instance
@@ -177,13 +175,13 @@ instance
   where
   v1 == v2 = exp_of_val v1 == exp_of_val v2
 
-exp_of_texp :: (Field a) => TExp ty a -> Exp a
-exp_of_texp te =
-  IR.toCoreExpr $ IR.applyLambdas $ ir_of_texp te
+exp_of_texp :: (Eq (IR.Exp a), Field a) => TExp ty a -> Exp a
+exp_of_texp te = IR.toCoreExpr (ir_of_texp te)
 
 instance
   ( Field a,
-    Eq a
+    Eq a,
+    Eq (IR.Exp a)
   ) =>
   Eq (TExp ty a)
   where
@@ -214,7 +212,6 @@ boolean_vars_of_texp = go []
     go vars (TEAssert e1 e2) = go (go vars e1) e2
     go vars (TESeq e1 e2) = go (go vars e1) e2
     go vars TEBot = vars
-    go vars (TELambdaVar _) = vars
     go vars (TEAbs _ e) = go vars e
     go vars (TEApp e1 e2) = go (go vars e1) e2
 
@@ -246,16 +243,22 @@ instance (Show a) => Show (Val ty a) where
   show VUnit = "()"
   show (VLoc l) = "loc_" ++ show l
 
-instance (Show a) => Show (TExp ty a) where
-  show (TEVar x) = "var " ++ show x
-  show (TEVal c) = show c
-  show (TEUnop op e1) = show op ++ show e1
-  show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
-  show (TEIf b e1 e2) =
-    "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
-  show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
-  show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
-  show TEBot = "bot"
-  show (TELambdaVar (TLambdaVar v)) = show v
-  show (TEAbs (TLambdaVar v) e) = "(\\" <> show v <> " -> " <> show e <> ")"
-  show (TEApp e1 e2) = "(" <> show e1 <> ") (" <> show e2 <> ")"
+deriving instance (Show a) => Show (TExp ty a)
+
+-- show (TEVar x) = "var " ++ show x
+-- show (TEVal c) = show c
+-- show (TEUnop op e1) = show op ++ show e1
+-- show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
+-- show (TEIf b e1 e2) =
+--  "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
+-- show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
+-- show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
+-- show TEBot = "bot"
+-- show (TELambdaVar (TLambdaVar v)) = show v
+-- show (TEAbs (TLambdaVar v) e) = "(\\" <> show v <> " -> " <> show e <> ")"
+-- show (TEApp e1 e2) = "(" <> show e1 <> ") (" <> show e2 <> ")"
+
+{-
+examples: TESeq (TEAssert (TEVar 2) (TEVar 0)) (TESeq (TEAssert (TEVar 3) (TEVar 1)) (TESeq (TEAssert (TEVar 4) (TEVar 2)) (TESeq (TEAssert (TEVar 5) (TEVar 2)) (TESeq (TEAssert (TEVar 6) (TEVal 2 % 1)) (TESeq (TEAssert (TEVar 7) (TEVar 2)) (TESeq (TEAssert (TEVar 8) (TEBinop * (TEVar 4) (TEVar 5))) (TESeq (TEAssert (TEVar 9) (TEBinop * (TEVar 6) (TEVar 7))) (TESeq (TEAssert (TEVar 10) (TEBinop + (TEVar 8) (TEVar 9))) (TESeq (TEAssert (TEVar 11) (TEVal 1 % 1)) (TESeq (TEAssert (TEVar 12) (TEBinop + (TEVar 10) (TEVar 11))) (TESeq (TEAssert (TEVar 13) (TEVar 3)) (TESeq (TEAssert (TEVar 14) (TEBinop - (TEVar 12) (TEVar 13))) (TESeq (TEAssert (TEVar 15) (TEVal 0 % 1)) (TESeq (TEAssert (TEVar 16) (TEVar 2)) (TESeq (TEAssert (TEVar 17) (TEVal 7 % 1)) (TESeq (TEAssert (TEVar 18) (TEBinop + (TEVar 16) (TEVar 17))) (TESeq (TEAssert (TEVar 19) (TEVar 3)) (TESeq (TEAssert (TEVar 20) (TEBinop - (TEVar 18) (TEVar 19))) (TESeq (TEAssert (TEVar 21) (TEVal 0 % 1)) (TESeq (TEAssert (TEVar 22) (TEBinop == (TEVar 20) (TEVar 21))) (TESeq (TEAssert (TEVar 23) (TEVal false)) (TESeq (TEAssert (TEVar 24) (TEBinop == (TEVar 14) (TEVar 15))) (TESeq (TEAssert (TEVar 25) (TEVal 42 % 1)) (TESeq (TEAssert (TEVar 26) (TEVal 0 % 1)) (TESeq (TEAssert (TEVar 27) (TEIf (TEVar 24) (TEVar 22) (TEVar 23))) (TEIf (TEVar 27) (TEVar 25) (TEVar 26))))))))))))))))))))))))))) evaluated to bot
+
+-}

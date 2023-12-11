@@ -4,8 +4,6 @@ import qualified Data.IntMap.Lazy as Map
 
 type Var = Int
 
-newtype LambdaVar = LambdaVar Int deriving (Eq, Show, Ord)
-
 type Assgn a = Map.IntMap a
 
 data UnOp = ZEq

@@ -695,10 +695,12 @@ lambda ::
   (TExp a Rational -> Comp b) ->
   Comp ('TFun a b)
 lambda f = do
-  _x <- fresh_lambda_var
+  _x <- fresh_var
   case _x of
-    TELambdaVar x -> do
-      res <- f (TELambdaVar x)
+    TEVar x -> do
+      -- probably this is introducing scope leak because assertions are created which
+      -- refer to the variable x.
+      res <- f (TEVar x)
       return $ TEAbs x res
     _ -> error "impossible: lambda"
 
@@ -735,4 +737,5 @@ uncurry f p = do
   -- uncurry ::
        (TExp a Rational -> Comp ('TFun b c)) ->
        (TExp (Prod a b) Rational -> Comp c )
+
 -}

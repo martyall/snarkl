@@ -19,7 +19,6 @@ module SyntaxMonad
     fresh_input,
     -- | Return a fresh variable.
     fresh_var,
-    fresh_lambda_var,
     -- | Return a fresh location.
     fresh_loc,
     -- | Basic values
@@ -61,13 +60,11 @@ import TExpr
       ( TEAssert,
         TEBinop,
         TEBot,
-        TELambdaVar,
         TESeq,
         TEUnop,
         TEVal,
         TEVar
       ),
-    TLambdaVar (TLambdaVar),
     TLoc (TLoc),
     TVar (TVar),
     Ty (TArr, TBool, TProd, TUnit),
@@ -174,7 +171,6 @@ type ObjMap =
 
 data Env = Env
   { next_var :: Int,
-    next_lambda_var :: Int,
     next_loc :: Int,
     input_vars :: [Int],
     obj_map :: ObjMap,
@@ -422,18 +418,6 @@ fresh_var =
           ( TEVar (TVar $ next_var s),
             s
               { next_var = (P.+) (next_var s) 1
-              }
-          )
-    )
-
-fresh_lambda_var :: State Env (TExp ty a)
-fresh_lambda_var =
-  State
-    ( \s ->
-        Right
-          ( TELambdaVar (TLambdaVar $ LambdaVar $ next_lambda_var s),
-            s
-              { next_lambda_var = (P.+) (next_lambda_var s) 1
               }
           )
     )
