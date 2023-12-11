@@ -24,16 +24,11 @@ where
 import Common (Op, UnOp, Var, is_assoc)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.State (State, get, modify, runState)
-import qualified Data.Aeson as A
 import Data.Kind (Type)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Set (Set)
-import qualified Data.Set as S
-import Debug.Trace (traceM)
 import qualified Expr as Core
 import Field (Field)
-import GHC.Generics (Generic)
 
 data Exp :: Type -> Type where
   EVar :: Var -> Exp a
@@ -51,13 +46,10 @@ deriving instance (Show a) => Show (Exp a)
 
 deriving instance (Eq a) => Eq (Exp a)
 
-data Env a = Env
-  { subs :: Map Var (Exp a),
-    lambdaVars :: Set Var
-  }
+type Env a = Map Var (Exp a)
 
 defaultEnv :: Env a
-defaultEnv = Env {subs = Map.empty, lambdaVars = S.empty}
+defaultEnv = Map.empty
 
 applyLambdas ::
   (Show a) =>
@@ -68,7 +60,7 @@ applyLambdas expression = runState (go expression) defaultEnv
     go :: (Show a) => Exp a -> State (Env a) (Exp a)
     go = \case
       EVar var -> do
-        ma <- Map.lookup var . subs <$> get
+        ma <- Map.lookup var <$> get
         case ma of
           Nothing -> do
             pure (EVar var)
@@ -80,18 +72,17 @@ applyLambdas expression = runState (go expression) defaultEnv
       EIf b e1 e2 -> EIf <$> go b <*> go e1 <*> go e2
       EAssert (EVar v1) e@(EAbs _ _) -> do
         _e <- go e
-        modify (\(Env {subs, ..}) -> Env {subs = Map.insert v1 _e subs, ..})
+        modify $ Map.insert v1 _e
         pure EUnit
       EAssert e1 e2 -> EAssert <$> go e1 <*> go e2
       ESeq e1 e2 -> ESeq <$> go e1 <*> go e2
       -- ESeq :: TExp 'TUnit a -> TExp ty2 a -> TExp ty2 a
       -- EBot :: (Typeable ty) => TExp ty a
       EAbs var e -> do
-        modify (\(Env {lambdaVars, ..}) -> Env {lambdaVars = S.insert var lambdaVars, ..})
         EAbs var <$> go e
       EApp (EAbs var e1) e2 -> do
         _e2 <- go e2
-        modify (\(Env {subs, ..}) -> Env {subs = Map.insert var e2 subs, ..})
+        modify $ Map.insert var e2
         go (substitute var e2 e1)
       EApp e1 e2 -> do
         _e1 <- go e1
@@ -137,8 +128,8 @@ exp_seq e1 e2 =
 
 toCoreExpr :: (Show a) => Exp a -> Core.Exp a
 toCoreExpr _exp =
-  let (coreExp, Env {lambdaVars}) = applyLambdas _exp
-   in case fmap (removeUnboundAssertions lambdaVars) . toCoreExpr' $ coreExp of
+  let (coreExp, _) = applyLambdas _exp
+   in case toCoreExpr' coreExp of
         Left err -> error err
         Right e -> e
 
@@ -153,66 +144,3 @@ toCoreExpr' = \case
   EAssert e1 e2 -> Core.EAssert <$> toCoreExpr' e1 <*> toCoreExpr' e2
   ESeq e1 e2 -> exp_seq <$> toCoreExpr' e1 <*> toCoreExpr' e2
   e -> throwError ("Impossible after IR simplicifaction: " <> show e)
-
--- this is a total hack because I think we're introducing extra assertions for bound variables which outlive
--- the scope of the variables
-removeUnboundAssertions :: Set Var -> Core.Exp a -> Core.Exp a
-removeUnboundAssertions lambdaVars = \case
-  e@(Core.EAssert _ (Core.EVar var)) ->
-    if S.member var lambdaVars
-      then Core.EUnit
-      else e
-  Core.ESeq es -> Core.ESeq (map (removeUnboundAssertions lambdaVars) es)
-  e -> e
-
-{-
-
-(\x y -> x y) (\x -> x)
-
-aL (EApp (EAbs x (EAbs y (EApp x y))) (Abs z z))
-
-[(x, Abs z z)]
-aL (EAbs y (EApp (EAbs z z) y))
-
-[(x, Abs z z)]
-EAbs y (aL (EApp (EAbs z z) y)))
-
-[(x, Abs z z), (z, y)]
-EAbs y (aL z y)
-EAbs y y
-
--}
-
-{-
-Does this terminate? Need to worry about
-
-(1) Will this always terminate?
-(2) Does it always make "progress"?
-(3) Do I need to run it multiple times
-
-1) tree never grows, leaves = {EVar, EVal, EUnit} obviously terminate.
-2) progress is defined by eliminating any lambdas in position
-
- TESeq
-   (TEAssert (TEVar 3) (TEVar 0))
-
- (TESeq
-   (TEAssert (TEVar 4) (TEVar 1))
-
- (TESeq
-   (TEAssert (TEVar 5) (TEVar 2))
-
- (TESeq (TEAssert (TEVar 7) (TEVar 6))
- (TESeq (TEAssert (TEVar 8) (TEVar 7))
- (TESeq (TEAssert (TEVar 9) (TEVar 7))
- (TESeq (TEAssert (TEVar 10) (TEVar 8))
- (TESeq (TEAssert (TEVar 11) (TEVar 9))
- (TESeq (TEAssert (TEVar 12) (TEVar 4))
- (TESeq (TEAssert (TEVar 13) (TEVar 4))
- (TESeq (TEAssert (TEVar 14) (TEAbs 6 (TESeq (TEAssert (TEVar 7) (TEVar 6))(TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 8)) (TESeq (TEAssert (TEVar 11) (TEVar 9)) (TEBinop * (TEVar 10) (TEVar 11))))))))) (TESeq (TEAssert (TEVar 15) (TEBinop + (TEVar 12) (TEVar 13))) (TEApp (TEVar 14) (TEVar 15)))))))))))))
-
- (TESeq
-   (TEAssert (TEVar 14)
-     (TEAbs 6 (TESeq (TEAssert (TEVar 7) (TEVar 6)) (TESeq (TEAssert (TEVar 8) (TEVar 7)) (TESeq (TEAssert (TEVar 9) (TEVar 7)) (TESeq (TEAssert (TEVar 10) (TEVar 8)) (TESeq (TEAssert (TEVar 11) (TEVar 9)) (TEBinop * (TEVar 10) (TEVar 11))))))))) (TESeq (TEAssert (TEVar 15) (TEBinop + (TEVar 12) (TEVar 13))) (TEApp (TEVar 14) (TEVar 15))))
-
--}

@@ -50,8 +50,6 @@ module SyntaxMonad
     get_addr,
     guard,
     add_objects,
-    withNoAssertions,
-    AssertionRecordStatus (..),
   )
 where
 
@@ -174,15 +172,12 @@ type ObjMap =
     )
     ObjBind -- maps to result r
 
-data AssertionRecordStatus = RecordAssertion | NoRecordAssertion deriving (Eq, Show)
-
 data Env = Env
   { next_var :: Int,
     next_loc :: Int,
     input_vars :: [Int],
     obj_map :: ObjMap,
-    anal_map :: Map.Map Var AnalBind, -- supporting simple constprop analyses
-    assertion_recording :: AssertionRecordStatus
+    anal_map :: Map.Map Var AnalBind -- supporting simple constprop analyses
   }
   deriving (Show)
 
@@ -311,41 +306,11 @@ te_assert x@(TEVar _) e =
       (_, TEVal VTrue, _) -> assert_true x
       (_, _, TEVal VTrue) -> assert_false x
       _ -> return $ TEVal VUnit
-    State
-      ( \s ->
-          case assertion_recording s of
-            RecordAssertion -> Right (TEAssert x e, s)
-            NoRecordAssertion -> Right (TEVal VUnit, s)
-      )
+    return $ TEAssert x e
 te_assert _ e =
   fail_with $
     ErrMsg $
       "in te_assert, expected var but got " ++ show e
-
-withNoAssertions :: (Typeable ty) => Comp ty -> Comp ty
-withNoAssertions c = do
-  _ <-
-    State
-      ( \s ->
-          Right
-            ( unit,
-              s
-                { assertion_recording = NoRecordAssertion
-                }
-            )
-      )
-  res <- c
-  _ <-
-    State
-      ( \s ->
-          Right
-            ( unit,
-              s
-                { assertion_recording = RecordAssertion
-                }
-            )
-      )
-  return res
 
 -- | Update array 'a' at position 'i' to expression 'e'. We special-case
 -- variable and location expressions, because they're representable untyped

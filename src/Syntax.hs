@@ -73,6 +73,7 @@ where
 
 import Common
 import Data.Typeable
+import Debug.Trace (trace, traceM)
 import Errors
 import R1CS
 import SyntaxMonad
@@ -682,13 +683,6 @@ times ::
   Comp 'TUnit
 times n mf = forall [0 .. dec n] (const mf)
 
-{-
-
-lambda
- x e
-
--}
-
 lambda ::
   (Typeable a) =>
   (Typeable b) =>
@@ -697,11 +691,15 @@ lambda ::
 lambda f = do
   _x <- fresh_var
   case _x of
-    TEVar x -> do
-      -- probably this is introducing scope leak because assertions are created which
-      -- refer to the variable x.
-      res <- f _x
-      return $ TEAbs x res
+    TEVar x ->
+      -- we need to inline the monadic computation to avoid having
+      -- bound variable escape there scope in assertions for (f _x)
+      State
+        ( \s ->
+            case runState (f _x) s of
+              Left err -> Left err
+              Right (res, s') -> Right (TEAbs x res, s')
+        )
     _ -> error "impossible: lambda"
 
 curry ::
@@ -714,7 +712,7 @@ curry ::
 curry f a = do
   lambda $ \b -> do
     p <- pair a b
-    withNoAssertions (f p)
+    f p
 
 uncurry ::
   (Typeable a) =>

@@ -147,7 +147,6 @@ texp_of_comp mf =
             []
             Map.empty
             Map.empty
-            RecordAssertion
         )
 
 ------------------------------------------------------
