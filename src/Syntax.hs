@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -463,6 +464,35 @@ instance
 
 instance Zippable ('TArr ty) where
   zip_vals _ x _ = return x
+
+{-
+
+class Zippable ty where
+  zip_vals ::
+    TExp 'TBool Rational ->
+    TExp ty Rational ->
+    TExp ty Rational ->
+    Comp ty
+
+  -}
+
+instance
+  ( Zippable ty1,
+    Typeable ty1,
+    Derive ty1,
+    Zippable ty2,
+    Typeable ty2,
+    Derive ty2
+  ) =>
+  Zippable ('TFun ty1 ty2)
+  where
+  zip_vals :: TExp 'TBool Rational -> TExp ('TFun ty1 ty2) Rational -> TExp ('TFun ty1 ty2) Rational -> Comp ('TFun ty1 ty2)
+  zip_vals b e1 e2 = do
+    y1 <- lambda $ \x ->
+      return $ TEApp e1 x
+    y2 <- lambda $ \x ->
+      return $ TEApp e2 x
+    zip_vals b y1 y2
 
 ----------------------------------------------------
 --
