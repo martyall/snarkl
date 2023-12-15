@@ -10,8 +10,9 @@ module Snarkl.Compile
   )
 where
 
+import Control.Lens ((&), (+~))
 import Control.Monad.State
-import qualified Data.IntMap.Lazy as Map
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Typeable
 import Snarkl.Common
@@ -60,7 +61,7 @@ fresh_var :: State (CEnv a) Var
 fresh_var =
   do
     next <- get_next_var
-    set_next_var (next + 1)
+    set_next_var (next & unVar +~ 1)
     return next
 
 -- | Add constraint 'x = y'
@@ -448,7 +449,7 @@ constraints_of_texp ::
   ( Field a,
     Typeable ty
   ) =>
-  -- | Output variable
+  -- | Next Output variable
   Var ->
   -- | Input variables
   [Var] ->
@@ -456,7 +457,7 @@ constraints_of_texp ::
   TExp ty a ->
   ConstraintSystem a
 constraints_of_texp out in_vars te =
-  let cenv_init = CEnv Set.empty (out + 1)
+  let cenv_init = CEnv Set.empty out
       (constrs, _) = runState go cenv_init
    in constrs
   where

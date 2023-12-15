@@ -74,6 +74,7 @@ library
     , containers     >=0.5  && <0.7
     , criterion      >=1.0
     , hspec          >=2.0
+    , lens
     , mtl            >=2.2  && <2.3
     , parallel       >=3.2  && <3.3
     , prettyprinter

@@ -46,6 +46,7 @@ module Snarkl.SyntaxMonad
   )
 where
 
+import Control.Lens ((&), (+~), (^.))
 import qualified Data.Map.Strict as Map
 import Data.String (IsString (..))
 import Data.Typeable
@@ -148,9 +149,9 @@ type ObjMap =
     ObjBind -- maps to result r
 
 data Env = Env
-  { next_var :: Int,
+  { next_var :: Var,
     next_loc :: Int,
-    input_vars :: [Int],
+    input_vars :: [Var],
     obj_map :: ObjMap,
     anal_map :: Map.Map Var AnalBind -- supporting simple constprop analyses
   }
@@ -186,7 +187,7 @@ arr len =
             -- (1) a new location (next_loc s)
             -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
             s
-              { next_var = (P.+) (next_var s) len,
+              { next_var = next_var s & unVar +~ len,
                 next_loc = (P.+) (next_loc s) 1,
                 obj_map = new_binds s `Map.union` obj_map s
               }
@@ -197,8 +198,8 @@ arr len =
     new_binds s =
       Map.fromList
         ( zip
-            (zip (repeat (next_loc s)) [0 .. ((P.-) len 1)])
-            (map ObjVar [next_var s .. ((P.+) (next_var s) ((P.-) len 1))])
+            (zip (repeat (next_loc s)) [0 .. (len `subtract` 1)])
+            (map ObjVar [next_var s .. (next_var s & unVar +~ (len `subtract` 1))])
         )
 
 -- Like 'arr', but declare fresh array variables as inputs.
@@ -214,7 +215,7 @@ input_arr len =
             -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
             -- (3) mark new vars. as inputs
             s
-              { next_var = (P.+) (next_var s) len,
+              { next_var = next_var s & unVar +~ len,
                 next_loc = (P.+) (next_loc s) 1,
                 input_vars = new_vars s ++ input_vars s,
                 obj_map = new_binds s `Map.union` obj_map s
@@ -225,9 +226,9 @@ input_arr len =
     new_binds :: Env -> ObjMap
     new_binds s =
       Map.fromList
-        (zip (zip (repeat (next_loc s)) [0 .. ((P.-) len 1)]) (map ObjVar $ new_vars s))
+        (zip (zip (repeat (next_loc s)) [0 .. (len `subtract` 1)]) (map ObjVar $ new_vars s))
 
-    new_vars s = [next_var s .. ((P.+) (next_var s) ((P.-) len 1))]
+    new_vars s = [next_var s .. (next_var s & unVar +~ (len `subtract` 1))]
 
 get_addr :: (Loc, Int) -> Comp ty
 get_addr (l, i) =
@@ -264,7 +265,7 @@ guarded_get_addr ::
   Int ->
   State Env (TExp ty2 Rational)
 guarded_get_addr e i =
-  guard (\e0 -> get_addr (locOfTexp e0, i)) e
+  guard (\e0 -> get_addr (locOfTexp e0 ^. unVar, i)) e
 
 get :: (Typeable ty) => (TExp ('TArr ty) Rational, Int) -> Comp ty
 get (TEBot, _) = return TEBot
@@ -336,7 +337,7 @@ pair ::
 pair te1 te2 =
   do
     l <- fresh_loc
-    _ <- add_binds (locOfTexp l) (lastSeq te1) (lastSeq te2)
+    _ <- add_binds (locOfTexp l ^. unVar) (lastSeq te1) (lastSeq te2)
     return l
   where
     add_binds l (TEVal (VLoc (TLoc l1))) (TEVal (VLoc (TLoc l2))) =
@@ -396,7 +397,7 @@ fresh_var =
         Right
           ( TEVar (TVar $ next_var s),
             s
-              { next_var = (P.+) (next_var s) 1
+              { next_var = next_var s & unVar +~ 1
               }
           )
     )
@@ -408,7 +409,7 @@ fresh_input =
         Right
           ( TEVar (TVar $ next_var s),
             s
-              { next_var = (P.+) (next_var s) 1,
+              { next_var = next_var s & unVar +~ 1,
                 input_vars = next_var s : input_vars s
               }
           )

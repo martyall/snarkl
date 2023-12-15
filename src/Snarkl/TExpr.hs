@@ -24,7 +24,7 @@ where
 import Data.Kind (Type)
 import Data.Typeable (Proxy (..), Typeable, eqT, typeOf, typeRep, type (:~:) (Refl))
 import Prettyprinter (Pretty (pretty), line, parens, (<+>))
-import Snarkl.Common (Op, UnOp, Var)
+import Snarkl.Common (Op, UnOp, Var (Var))
 import Snarkl.Errors (ErrMsg (ErrMsg), failWith)
 import Snarkl.Expr
   ( Exp (EAssert, EIf, EUnit, EUnop, EVal, EVar),
@@ -246,7 +246,7 @@ varOfTExp te = case lastSeq te of
 
 locOfTexp :: (Show (TExp ty a)) => TExp ty a -> Var
 locOfTexp te = case lastSeq te of
-  TEVal (VLoc (TLoc l)) -> l
+  TEVal (VLoc (TLoc l)) -> Var l
   _ -> failWith $ ErrMsg ("locOfTexp: expected loc: " ++ show te)
 
 lastSeq :: TExp ty a -> TExp ty a

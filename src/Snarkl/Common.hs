@@ -2,13 +2,17 @@
 
 module Snarkl.Common where
 
-import qualified Data.IntMap.Lazy as Map
+import Control.Lens (Iso', iso)
+import qualified Data.Map as Map
 import Data.Ratio
 import Prettyprinter
 
-type Var = Int
+newtype Var = Var Int deriving (Eq, Show, Ord, Pretty, Enum)
 
-type Assgn a = Map.IntMap a
+unVar :: Iso' Var Int
+unVar = iso (\(Var x) -> x) Var
+
+type Assgn a = Map.Map Var a
 
 data UnOp = ZEq
   deriving (Eq, Show)

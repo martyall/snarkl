@@ -55,9 +55,9 @@ module Snarkl.Toplevel
   )
 where
 
-import qualified Data.IntMap.Lazy as IntMap
+import Control.Lens ((^.))
 import Data.List (sort)
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
 import Data.Typeable
 import Prettyprinter
 import Snarkl.Common
@@ -97,7 +97,7 @@ comp_interp ::
   Rational
 comp_interp mf inputs =
   let TExpPkg _ in_vars e = texp_of_comp mf
-      input_map = IntMap.fromList $ zip in_vars inputs
+      input_map = Map.fromList $ zip in_vars inputs
    in case interp input_map e of
         Left err -> failWith err
         Right (_, Nothing) -> failWith $ ErrMsg $ show e ++ " evaluated to bot"
@@ -136,7 +136,7 @@ texp_of_comp mf =
   case run mf of
     Left err -> failWith err
     Right (e, rho) ->
-      let nv = next_var rho
+      let nv = next_var rho ^. unVar
           in_vars = sort $ input_vars rho
        in TExpPkg nv in_vars e
   where
@@ -145,7 +145,7 @@ texp_of_comp mf =
       runState
         mf0
         ( Env
-            (fromInteger 0)
+            (Var $ fromInteger 0)
             (fromInteger 0)
             []
             Map.empty
@@ -163,7 +163,7 @@ constrs_of_texp ::
   (Typeable ty) =>
   TExpPkg ty ->
   ConstraintSystem Rational
-constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp out in_vars e
+constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp (Var $ out + 1) in_vars e
 
 -- | Snarkl.Compile Snarkl computations to constraint systems.
 constrs_of_comp ::
@@ -204,10 +204,10 @@ r1cs_of_comp ::
 r1cs_of_comp simpl = (r1cs_of_constrs simpl) . constrs_of_comp
 
 -- | For a given R1CS and inputs, calculate a satisfying assignment.
-wit_of_r1cs :: [Rational] -> R1CS Rational -> IntMap.IntMap Rational
+wit_of_r1cs :: [Rational] -> R1CS Rational -> Map.Map Var Rational
 wit_of_r1cs inputs r1cs =
   let in_vars = r1cs_in_vars r1cs
-      f = r1cs_gen_witness r1cs . IntMap.fromList
+      f = r1cs_gen_witness r1cs . Map.fromList
    in case length in_vars /= length inputs of
         True ->
           failWith $
@@ -225,7 +225,7 @@ wit_of_r1cs inputs r1cs =
 -- | For a given R1CS and inputs, serialize the input variable assignment.
 serialize_inputs :: [Rational] -> R1CS Rational -> String
 serialize_inputs inputs r1cs =
-  let inputs_assgn = IntMap.fromList $ zip (r1cs_in_vars r1cs) inputs
+  let inputs_assgn = Map.fromList $ zip (r1cs_in_vars r1cs) inputs
    in Serialize.serialize_assgn inputs_assgn
 
 -- | For a given R1CS and inputs, serialize the witness variable assignment.
@@ -233,7 +233,7 @@ serialize_witnesses :: [Rational] -> R1CS Rational -> String
 serialize_witnesses inputs r1cs =
   let num_in_vars = length $ r1cs_in_vars r1cs
       assgn = wit_of_r1cs inputs r1cs
-      inputs_assgn = IntMap.fromList $ drop num_in_vars $ IntMap.toAscList assgn
+      inputs_assgn = Map.fromList $ drop num_in_vars $ Map.toAscList assgn
    in Serialize.serialize_assgn inputs_assgn
 
 serialize_r1cs :: R1CS Rational -> String
@@ -485,7 +485,7 @@ execute simpl mf inputs =
       [out_var] = r1cs_out_vars r1cs
       ng = num_constraints r1cs
       wit = wit_of_r1cs inputs r1cs
-      out = case IntMap.lookup out_var wit of
+      out = case Map.lookup out_var wit of
         Nothing ->
           failWith $
             ErrMsg
