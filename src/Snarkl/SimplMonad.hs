@@ -10,9 +10,7 @@ module Snarkl.SimplMonad
   )
 where
 
-import Control.Lens ((^.))
 import Control.Monad.State
-import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Snarkl.Common
 import Snarkl.Field
@@ -49,7 +47,7 @@ bind_var (x, c) =
   do
     rx <- root_of_var x
     senv <- get
-    let eqs' = (eqs senv) {extras = IntMap.insert (rx ^. _Var) c (extras $ eqs senv)}
+    let eqs' = (eqs senv) {extras = Map.insert rx c (extras $ eqs senv)}
     put $ senv {eqs = eqs'}
 
 -- | Return 'x''s root (the representative of its equivalence class).
