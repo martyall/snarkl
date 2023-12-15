@@ -1,5 +1,6 @@
 module Snarkl.Serialize where
 
+import Control.Lens ((&), (+~), (^.))
 import qualified Data.Map as Map
 import Data.Ratio
 import Snarkl.Common
@@ -19,7 +20,7 @@ flatten_rat r =
 
 serialize_assgn :: Assgn Rational -> String
 serialize_assgn m =
-  let binds = Map.toAscList $ Map.mapKeys (\(Var v) -> v + 1) m
+  let binds = Map.toAscList $ Map.mapKeys (\v -> (v ^. _Var) + 1) m
    in concat $
         map (\(_, v) -> show (flatten_rat v) ++ "\n") binds
 
@@ -27,7 +28,7 @@ serialize_poly :: Poly Rational -> String
 serialize_poly p = case p of
   Poly m ->
     let size = Map.size m
-        binds = Map.toList $ Map.mapKeys (\(Var v) -> v + 1) m
+        binds = Map.toList $ Map.mapKeys (\v -> v & _Var +~ 1) m
         string_binds =
           map
             ( \(k, v) ->

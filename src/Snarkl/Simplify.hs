@@ -186,7 +186,7 @@ do_simplify in_solve_mode env cs =
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs ++ magic_vars (cs_constraints cs)
       do_solve = if in_solve_mode then UseMagic else JustSimplify
       -- TODO: Go through UnionFind and decide what is really an IntMap
-      envAsIntMap = IntMap.fromList $ Map.toList $ Map.mapKeys (view unVar) env
+      envAsIntMap = IntMap.fromList $ Map.toList $ Map.mapKeys (view _Var) env
       new_state = SEnv (new_uf {extras = envAsIntMap}) do_solve
    in fst $ runState (go pinned_vars) new_state
   where

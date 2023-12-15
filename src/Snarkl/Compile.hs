@@ -61,7 +61,7 @@ fresh_var :: State (CEnv a) Var
 fresh_var =
   do
     next <- get_next_var
-    set_next_var (next & unVar +~ 1)
+    set_next_var (next & _Var +~ 1)
     return next
 
 -- | Add constraint 'x = y'

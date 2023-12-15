@@ -1,6 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Snarkl.Common where
+module Snarkl.Common
+  ( Var,
+    _Var,
+    mkVar,
+    Assgn,
+    UnOp (..),
+    Op (..),
+    isBoolean,
+    isAssoc,
+  )
+where
 
 import Control.Lens (Iso', iso)
 import qualified Data.Map as Map
@@ -9,8 +19,11 @@ import Prettyprinter
 
 newtype Var = Var Int deriving (Eq, Show, Ord, Pretty, Enum)
 
-unVar :: Iso' Var Int
-unVar = iso (\(Var x) -> x) Var
+mkVar :: Int -> Var
+mkVar = Var
+
+_Var :: Iso' Var Int
+_Var = iso (\(Var x) -> x) Var
 
 type Assgn a = Map.Map Var a
 

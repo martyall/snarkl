@@ -181,7 +181,7 @@ r1cs_of_cs cs =
     go (CAdd a m : cs') =
       R1C
         ( const_poly one,
-          Poly $ Map.insert (Var (-1)) a $ Map.fromList (asList m),
+          Poly $ Map.insert (mkVar (-1)) a $ Map.fromList (asList m),
           const_poly zero
         )
         : go cs'
@@ -222,7 +222,7 @@ renumber_constraints cs =
 
     var_map =
       Map.fromList $
-        zip (cs_in_vars cs ++ filter isnt_input all_vars) [Var 0 ..]
+        zip (cs_in_vars cs ++ filter isnt_input all_vars) [mkVar 0 ..]
       where
         isnt_input = not . flip Set.member in_vars_set
         in_vars_set = Set.fromList $ cs_in_vars cs

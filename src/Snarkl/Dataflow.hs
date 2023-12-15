@@ -6,7 +6,7 @@ module Snarkl.Dataflow
   )
 where
 
-import Control.Lens ((&), (+~))
+import Control.Lens (review, (&), (+~))
 import Control.Monad.State
 import Data.List (foldl')
 import Data.Map (Map)
@@ -18,7 +18,7 @@ import Snarkl.Constraints
 
 number_constraints :: ConstraintSystem a -> Map Var (Constraint a)
 number_constraints cs =
-  go (Var 0) Map.empty (Set.toList $ cs_constraints cs)
+  go (review _Var 0) Map.empty (Set.toList $ cs_constraints cs)
   where
     go ::
       Var ->
@@ -27,7 +27,7 @@ number_constraints cs =
       Map Var (Constraint a)
     go _ m [] = m
     go n m (c : cs') =
-      go (n & unVar +~ 1) (Map.insert n c m) cs'
+      go (n & _Var +~ 1) (Map.insert n c m) cs'
 
 -- | Map variables to the indices of the constraints in which the vars appear.
 gather_vars :: Map Var (Constraint a) -> Map Var (Set Var)

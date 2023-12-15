@@ -49,7 +49,7 @@ bind_var (x, c) =
   do
     rx <- root_of_var x
     senv <- get
-    let eqs' = (eqs senv) {extras = IntMap.insert (rx ^. unVar) c (extras $ eqs senv)}
+    let eqs' = (eqs senv) {extras = IntMap.insert (rx ^. _Var) c (extras $ eqs senv)}
     put $ senv {eqs = eqs'}
 
 -- | Return 'x''s root (the representative of its equivalence class).

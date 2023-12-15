@@ -55,7 +55,7 @@ module Snarkl.Toplevel
   )
 where
 
-import Control.Lens ((^.))
+import Control.Lens (review, (^.))
 import Data.List (sort)
 import qualified Data.Map as Map
 import Data.Typeable
@@ -136,7 +136,7 @@ texp_of_comp mf =
   case run mf of
     Left err -> failWith err
     Right (e, rho) ->
-      let nv = next_var rho ^. unVar
+      let nv = next_var rho ^. _Var
           in_vars = sort $ input_vars rho
        in TExpPkg nv in_vars e
   where
@@ -145,8 +145,8 @@ texp_of_comp mf =
       runState
         mf0
         ( Env
-            (Var $ fromInteger 0)
-            (fromInteger 0)
+            (review _Var $ fromInteger 0)
+            (review _Loc $ fromInteger 0)
             []
             Map.empty
             Map.empty
@@ -163,7 +163,7 @@ constrs_of_texp ::
   (Typeable ty) =>
   TExpPkg ty ->
   ConstraintSystem Rational
-constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp (Var $ out + 1) in_vars e
+constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp (review _Var $ out + 1) in_vars e
 
 -- | Snarkl.Compile Snarkl computations to constraint systems.
 constrs_of_comp ::

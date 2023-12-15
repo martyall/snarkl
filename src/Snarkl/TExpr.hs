@@ -18,13 +18,16 @@ module Snarkl.TExpr
     teSeq,
     lastSeq,
     expOfTExp,
+    mkLoc,
+    _Loc,
   )
 where
 
+import Control.Lens (Iso', iso, (^.))
 import Data.Kind (Type)
 import Data.Typeable (Proxy (..), Typeable, eqT, typeOf, typeRep, type (:~:) (Refl))
 import Prettyprinter (Pretty (pretty), line, parens, (<+>))
-import Snarkl.Common (Op, UnOp, Var (Var))
+import Snarkl.Common (Op, UnOp, Var, mkVar)
 import Snarkl.Errors (ErrMsg (ErrMsg), failWith)
 import Snarkl.Expr
   ( Exp (EAssert, EIf, EUnit, EUnop, EVal, EVar),
@@ -104,7 +107,13 @@ varIsBoolean :: (Typeable ty) => TVar ty -> Bool
 varIsBoolean x =
   typeOf x == typeRep (Proxy :: Proxy (TVar 'TBool))
 
-type Loc = Int
+newtype Loc = Loc Int deriving (Eq, Show, Ord, Pretty)
+
+mkLoc :: Int -> Loc
+mkLoc = Loc
+
+_Loc :: Iso' Loc Int
+_Loc = iso (\(Loc x) -> x) Loc
 
 newtype TLoc (ty :: Ty) = TLoc Loc deriving (Eq, Show)
 
@@ -246,7 +255,7 @@ varOfTExp te = case lastSeq te of
 
 locOfTexp :: (Show (TExp ty a)) => TExp ty a -> Var
 locOfTexp te = case lastSeq te of
-  TEVal (VLoc (TLoc l)) -> Var l
+  TEVal (VLoc (TLoc l)) -> mkVar (l ^. _Loc)
   _ -> failWith $ ErrMsg ("locOfTexp: expected loc: " ++ show te)
 
 lastSeq :: TExp ty a -> TExp ty a

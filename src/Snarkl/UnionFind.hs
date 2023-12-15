@@ -24,13 +24,13 @@ new_uf :: UnionFind a
 new_uf = UnionFind IntMap.empty IntMap.empty IntMap.empty
 
 id_of :: UnionFind a -> Var -> Var
-id_of uf x = fromMaybe x $ IntMap.lookup (x ^. unVar) (ids uf)
+id_of uf x = fromMaybe x $ IntMap.lookup (x ^. _Var) (ids uf)
 
 size_of :: UnionFind a -> Var -> Int
-size_of uf x = fromMaybe 1 $ IntMap.lookup (x ^. unVar) (sizes uf)
+size_of uf x = fromMaybe 1 $ IntMap.lookup (x ^. _Var) (sizes uf)
 
 extra_of :: UnionFind a -> Var -> Maybe a
-extra_of uf x = IntMap.lookup (x ^. unVar) (extras uf)
+extra_of uf x = IntMap.lookup (x ^. _Var) (extras uf)
 
 root :: (Show a, Eq a) => UnionFind a -> Var -> (Var, UnionFind a)
 root uf x =
@@ -40,14 +40,14 @@ root uf x =
         else
           let gpx = id_of uf px
               uf' = merge_extras uf x gpx
-           in root (uf' {ids = IntMap.insert (x ^. unVar) gpx (ids uf)}) px
+           in root (uf' {ids = IntMap.insert (x ^. _Var) gpx (ids uf)}) px
 
 merge_extras :: (Show a, Eq a) => UnionFind a -> Var -> Var -> UnionFind a
 merge_extras uf x y =
-  case (IntMap.lookup (x ^. unVar) (extras uf), IntMap.lookup (y ^. unVar) (extras uf)) of
+  case (IntMap.lookup (x ^. _Var) (extras uf), IntMap.lookup (y ^. _Var) (extras uf)) of
     (Nothing, Nothing) -> uf
-    (Nothing, Just d) -> uf {extras = IntMap.insert (x ^. unVar) d (extras uf)}
-    (Just c, Nothing) -> uf {extras = IntMap.insert (y ^. unVar) c (extras uf)}
+    (Nothing, Just d) -> uf {extras = IntMap.insert (x ^. _Var) d (extras uf)}
+    (Just c, Nothing) -> uf {extras = IntMap.insert (y ^. _Var) c (extras uf)}
     (Just c, Just d) ->
       if c == d
         then uf
@@ -82,11 +82,11 @@ unite uf x y
        in if sz_rx >= sz_ry
             then
               uf'
-                { ids = IntMap.insert (y0 ^. unVar) rx (ids uf'),
-                  sizes = IntMap.insert (x0 ^. unVar) (sz_rx + sz_ry) (sizes uf')
+                { ids = IntMap.insert (y0 ^. _Var) rx (ids uf'),
+                  sizes = IntMap.insert (x0 ^. _Var) (sz_rx + sz_ry) (sizes uf')
                 }
             else
               uf'
-                { ids = IntMap.insert (x0 ^. unVar) ry (ids uf'),
-                  sizes = IntMap.insert (y0 ^. unVar) (sz_rx + sz_ry) (sizes uf')
+                { ids = IntMap.insert (x0 ^. _Var) ry (ids uf'),
+                  sizes = IntMap.insert (y0 ^. _Var) (sz_rx + sz_ry) (sizes uf')
                 }

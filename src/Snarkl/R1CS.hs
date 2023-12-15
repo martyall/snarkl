@@ -9,12 +9,12 @@ module Snarkl.R1CS
   )
 where
 
-import Control.Parallel.Strategies
+import Control.Parallel.Strategies (parListChunk, rseq, using)
 import qualified Data.Map as Map
-import Snarkl.Common
-import Snarkl.Errors
-import Snarkl.Field
-import Snarkl.Poly
+import Snarkl.Common (Assgn, Var, mkVar)
+import Snarkl.Errors (ErrMsg (ErrMsg), failWith)
+import Snarkl.Field (Field (add, mult, zero))
+import Snarkl.Poly (Poly (..))
 
 ----------------------------------------------------------------
 --                Rank-1 Constraint Systems                   --
@@ -48,7 +48,7 @@ sat_r1c w c
   where
     inner :: (Field a) => Poly a -> Assgn a -> a
     inner (Poly v) w' =
-      let c0 = Map.findWithDefault zero (Var (-1)) v
+      let c0 = Map.findWithDefault zero (mkVar (-1)) v
        in Map.foldlWithKey (f w') c0 v
 
     f w' acc v_key v_val =
