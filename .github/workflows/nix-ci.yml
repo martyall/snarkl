@@ -40,5 +40,6 @@ jobs:
     - run: ls -lah cppsrc/bin
     - run: chmod +x cppsrc/bin/snarky
     - run: ls -lah cppsrc/bin 
-
+    - run: ./cppsrc/bin/snarky
+    
     - run: nix develop --command cabal run tests
