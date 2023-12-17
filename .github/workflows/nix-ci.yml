@@ -27,11 +27,13 @@ jobs:
 
     - run: nix build
 
+    - run: mkdir -p cppsrc/bin
+
     - name: Download artifact
       id: download-artifact
       uses: dawidd6/action-download-artifact@v3
       with:
         workflow: snarky.yml
-        name: snarky
+        name: cppsrc/bin/snarky
 
     - run: nix develop --command cabal run tests
