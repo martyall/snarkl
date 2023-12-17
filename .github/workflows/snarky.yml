@@ -3,7 +3,7 @@ name: snarky.cpp
 on:
   push:
     paths:
-      - '**.cpp'
+      - 'cppsrc/**.*'
 
 jobs:
   build:
