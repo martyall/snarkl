@@ -1,4 +1,4 @@
-name: snarky.cpp
+name: snarky
 
 on:
   push:
