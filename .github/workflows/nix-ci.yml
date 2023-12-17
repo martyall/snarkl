@@ -32,5 +32,6 @@ jobs:
       uses: dawidd6/action-download-artifact@v3
       with:
         workflow: snarky.yml
+        name: cppsrc/snarky
 
     - run: nix develop --command cabal run tests
