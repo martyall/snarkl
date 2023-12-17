@@ -37,4 +37,6 @@ jobs:
         name: snarky
         path: cppsrc/bin/
 
+    - run: ls -a cppsrc/bin
+
     - run: nix develop --command cabal run tests
