@@ -18,5 +18,6 @@ make lib
 make lib STATIC=1
 # make check
 sudo make install PREFIX=$DEPINST
+sudo cp libsnark.a /usr/lib/libsnark.a
 
 
