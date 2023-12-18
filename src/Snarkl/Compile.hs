@@ -1,7 +1,7 @@
 module Snarkl.Compile
   ( CEnv (CEnv),
     SimplParam (..),
-    fresh_var,
+    freshVar,
     cs_of_exp,
     get_constraints,
     constraints_of_texp,
@@ -11,7 +11,7 @@ module Snarkl.Compile
 where
 
 import Control.Monad.State
-import qualified Data.IntMap.Lazy as Map
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Typeable
 import Snarkl.Common
@@ -37,6 +37,12 @@ data CEnv a = CEnv
     next_var :: Var
   }
 
+freshVar :: State (CEnv a) Var
+freshVar = do
+  env <- get
+  _ <- put $ env {next_var = Var (unVar (next_var env) + 1)}
+  return $ next_var env
+
 add_constraint :: (Ord a) => Constraint a -> State (CEnv a) ()
 add_constraint c =
   modify (\cenv -> cenv {cur_cs = Set.insert c $ cur_cs cenv})
@@ -46,22 +52,6 @@ get_constraints =
   do
     cenv <- get
     return $ Set.toList $ cur_cs cenv
-
-get_next_var :: State (CEnv a) Var
-get_next_var =
-  do
-    cenv <- get
-    return (next_var cenv)
-
-set_next_var :: Var -> State (CEnv a) ()
-set_next_var next = modify (\cenv -> cenv {next_var = next})
-
-fresh_var :: State (CEnv a) Var
-fresh_var =
-  do
-    next <- get_next_var
-    set_next_var (next + 1)
-    return next
 
 -- | Add constraint 'x = y'
 ensure_equal :: (Field a) => (Var, Var) -> State (CEnv a) ()
@@ -85,7 +75,7 @@ ensure_boolean b =
 encode_or :: (Field a) => (Var, Var, Var) -> State (CEnv a) ()
 encode_or (x, y, z) =
   do
-    x_mult_y <- fresh_var
+    x_mult_y <- freshVar
     cs_of_exp x_mult_y (EBinop Mult [EVar x, EVar y])
     cs_of_exp
       x_mult_y
@@ -101,7 +91,7 @@ encode_or (x, y, z) =
 encode_xor :: (Field a) => (Var, Var, Var) -> State (CEnv a) ()
 encode_xor (x, y, z) =
   do
-    x_mult_y <- fresh_var
+    x_mult_y <- freshVar
     encode_binop Mult (x, y, x_mult_y)
     add_constraint $
       cadd
@@ -114,7 +104,7 @@ encode_xor (x, y, z) =
 
 -- -- The following desugaring is preferable, but generates more constraints.
 -- -- Perhaps something to investigate wrt. Simplify.hs.
---   = do { x_mult_y <- fresh_var
+--   = do { x_mult_y <- freshVar
 --        ; cs_of_exp x_mult_y (EBinop Mult
 --                                     [EVal (one `add` one)
 --                                     ,EBinop Mult [EVar x,EVar y]])
@@ -158,13 +148,13 @@ encode_eq (x, y, z) = cs_of_exp z e
 encode_zneq :: (Field a) => (Var, Var) -> State (CEnv a) ()
 encode_zneq (x, y) =
   do
-    m <- fresh_var
-    neg_y <- fresh_var
+    m <- freshVar
+    neg_y <- freshVar
     -- The following 'magic' constraint resolves the value of
     -- nondet witness 'm':
     --   m = 0,      x = 0
     --   m = inv x,  x <> 0
-    nm <- fresh_var
+    nm <- freshVar
     add_constraint (CMagic nm [x, m] mf)
     -- END magic.
     cs_of_exp y (EBinop Mult [EVar x, EVar m])
@@ -204,7 +194,7 @@ encode_zneq (x, y) =
 encode_zeq :: (Field a) => (Var, Var) -> State (CEnv a) ()
 encode_zeq (x, y) =
   do
-    neg_y <- fresh_var
+    neg_y <- freshVar
     encode_zneq (x, neg_y)
     cs_of_exp y (EBinop Sub [EVal one, EVar neg_y])
 
@@ -261,7 +251,7 @@ cs_of_exp out e = case e of
       encode_unop op (x, out)
   EUnop op e1 ->
     do
-      e1_out <- fresh_var
+      e1_out <- freshVar
       cs_of_exp e1_out e1
       encode_unop op (e1_out, out)
   EBinop op es ->
@@ -288,13 +278,13 @@ cs_of_exp out e = case e of
             return $ Left (y, coeff) : labels
         go_linear (EBinop Mult [e_left, EVal coeff] : es') =
           do
-            e_left_out <- fresh_var
+            e_left_out <- freshVar
             cs_of_exp e_left_out e_left
             labels <- go_linear es'
             return $ Left (e_left_out, coeff) : labels
         go_linear (EBinop Mult [EVal coeff, e_right] : es') =
           do
-            e_right_out <- fresh_var
+            e_right_out <- freshVar
             cs_of_exp e_right_out e_right
             labels <- go_linear es'
             return $ Left (e_right_out, coeff) : labels
@@ -310,7 +300,7 @@ cs_of_exp out e = case e of
         -- The 'go_linear' catch-all case (i.e., no optimization)
         go_linear (e1 : es') =
           do
-            e1_out <- fresh_var
+            e1_out <- freshVar
             cs_of_exp e1_out e1
             labels <- go_linear es'
             return $ Left (e1_out, one) : labels
@@ -334,7 +324,7 @@ cs_of_exp out e = case e of
             return $ x : labels
         go_other (e1 : es') =
           do
-            e1_out <- fresh_var
+            e1_out <- freshVar
             cs_of_exp e1_out e1
             labels <- go_other es'
             return $ e1_out : labels
@@ -344,7 +334,7 @@ cs_of_exp out e = case e of
         encode_labels (l1 : l2 : []) = encode_binop op (l1, l2, out)
         encode_labels (l1 : l2 : labels') =
           do
-            res_out <- fresh_var
+            res_out <- freshVar
             encode_labels (res_out : labels')
             encode_binop op (l1, l2, res_out)
      in do
@@ -385,7 +375,7 @@ cs_of_exp out e = case e of
       cs_of_exp x e2
   ESeq le ->
     do
-      x <- fresh_var -- x is garbage
+      x <- freshVar -- x is garbage
       go x le
     where
       go _ [] = failWith $ ErrMsg "internal error: empty ESeq"
@@ -456,7 +446,7 @@ constraints_of_texp ::
   TExp ty a ->
   ConstraintSystem a
 constraints_of_texp out in_vars te =
-  let cenv_init = CEnv Set.empty (out + 1)
+  let cenv_init = CEnv Set.empty (incVar out)
       (constrs, _) = runState go cenv_init
    in constrs
   where

@@ -185,7 +185,7 @@ do_simplify in_solve_mode env cs =
   -- Pinned vars are never optimized away.
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs ++ magic_vars (cs_constraints cs)
       do_solve = if in_solve_mode then UseMagic else JustSimplify
-      new_state = SEnv (UF.empty {UF.extras = intMapToMap env}) do_solve
+      new_state = SEnv (UF.empty {UF.extras = env}) do_solve
    in fst $ runState (go pinned_vars) new_state
   where
     go pinned_vars =

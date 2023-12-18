@@ -359,7 +359,7 @@ instance
           roll v1
     | otherwise =
         do
-          x <- fresh_var
+          x <- freshVar
           _ <- assert_bot x
           return x
 

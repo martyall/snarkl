@@ -4,29 +4,29 @@ module Snarkl.Dataflow
 where
 
 import Control.Monad.State
-import Data.IntMap.Lazy (IntMap)
-import qualified Data.IntMap.Lazy as Map
 import Data.List (foldl')
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Snarkl.Common
 import Snarkl.Constraints
 
-number_constraints :: ConstraintSystem a -> IntMap (Constraint a)
+number_constraints :: ConstraintSystem a -> Map Var (Constraint a)
 number_constraints cs =
-  go 0 Map.empty (Set.toList $ cs_constraints cs)
+  go (Var 0) Map.empty (Set.toList $ cs_constraints cs)
   where
     go ::
-      Int ->
-      IntMap (Constraint a) ->
+      Var ->
+      Map Var (Constraint a) ->
       [Constraint a] ->
-      IntMap (Constraint a)
+      Map Var (Constraint a)
     go _ m [] = m
     go n m (c : cs') =
-      go (n + 1) (Map.insert n c m) cs'
+      go (incVar n) (Map.insert n c m) cs'
 
 -- | Map variables to the indices of the constraints in which the vars appear.
-gather_vars :: IntMap (Constraint a) -> IntMap (Set Int)
+gather_vars :: Map Var (Constraint a) -> Map Var (Set Var)
 gather_vars constr_map =
   go Map.empty (Map.toList constr_map)
   where
@@ -85,9 +85,9 @@ remove_unreachable cs =
 
 explore_vars ::
   -- | ConstraintId->Constraint
-  IntMap (Constraint a) ->
+  Map Var (Constraint a) ->
   -- | Var->Set ConstraintId
-  IntMap (Set Int) ->
+  Map Var (Set Var) ->
   -- | Roots to explore
   [Var] ->
   State (DEnv a) ()

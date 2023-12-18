@@ -10,7 +10,8 @@ module Snarkl.TExpr
     TUnop (..),
     TOp (..),
     TVar (..),
-    Loc,
+    Loc (..),
+    incLoc,
     TLoc (..),
     booleanVarsOfTexp,
     varOfTExp,
@@ -24,7 +25,7 @@ where
 import Data.Kind (Type)
 import Data.Typeable (Proxy (..), Typeable, eqT, typeOf, typeRep, type (:~:) (Refl))
 import Prettyprinter (Pretty (pretty), line, parens, (<+>))
-import Snarkl.Common (Op, UnOp, Var)
+import Snarkl.Common (Op, UnOp, Var, incVar)
 import Snarkl.Errors (ErrMsg (ErrMsg), failWith)
 import Snarkl.Expr
   ( Exp (EAssert, EIf, EUnit, EUnop, EVal, EVar),
@@ -104,7 +105,10 @@ varIsBoolean :: (Typeable ty) => TVar ty -> Bool
 varIsBoolean x =
   typeOf x == typeRep (Proxy :: Proxy (TVar 'TBool))
 
-type Loc = Int
+newtype Loc = Loc {unLoc :: Var} deriving (Eq, Show, Pretty, Ord)
+
+incLoc :: Loc -> Loc
+incLoc (Loc x) = Loc $ incVar x
 
 newtype TLoc (ty :: Ty) = TLoc Loc deriving (Eq, Show)
 
@@ -244,7 +248,7 @@ varOfTExp te = case lastSeq te of
   TEVar (TVar x) -> x
   _ -> failWith $ ErrMsg ("varOfTExp: expected var: " ++ show te)
 
-locOfTexp :: (Show (TExp ty a)) => TExp ty a -> Var
+locOfTexp :: (Show (TExp ty a)) => TExp ty a -> Loc
 locOfTexp te = case lastSeq te of
   TEVal (VLoc (TLoc l)) -> l
   _ -> failWith $ ErrMsg ("locOfTexp: expected loc: " ++ show te)

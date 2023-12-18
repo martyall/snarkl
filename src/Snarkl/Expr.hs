@@ -9,9 +9,9 @@ module Snarkl.Expr
 where
 
 import Control.Monad.State
-import Data.IntMap.Lazy (IntMap)
-import qualified Data.IntMap.Lazy as IntMap
 import Data.Kind (Type)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Prettyprinter
 import Snarkl.Common
 import Snarkl.Errors
@@ -74,7 +74,7 @@ is_pure e =
     ESeq es -> all is_pure es
     EUnit -> True
 
-const_prop :: (Field a) => Exp a -> State (IntMap a) (Exp a)
+const_prop :: (Field a) => Exp a -> State (Map Var a) (Exp a)
 const_prop e =
   case e of
     EVar x -> lookup_var x
@@ -105,21 +105,21 @@ const_prop e =
         return $ ESeq es'
     EUnit -> return EUnit
   where
-    lookup_var :: (Field a) => Int -> State (IntMap a) (Exp a)
+    lookup_var :: (Field a) => Var -> State (Map Var a) (Exp a)
     lookup_var x0 =
       gets
-        ( \m -> case IntMap.lookup x0 m of
+        ( \m -> case Map.lookup x0 m of
             Nothing -> EVar x0
             Just c -> EVal c
         )
-    add_bind :: (Int, a) -> State (IntMap a) (Exp a)
+    add_bind :: (Var, a) -> State (Map Var a) (Exp a)
     add_bind (x0, c0) =
       do
-        modify (IntMap.insert x0 c0)
+        modify (Map.insert x0 c0)
         return EUnit
 
 do_const_prop :: (Field a) => Exp a -> Exp a
-do_const_prop e = fst $ runState (const_prop e) IntMap.empty
+do_const_prop e = fst $ runState (const_prop e) Map.empty
 
 instance (Pretty a) => Pretty (Exp a) where
   pretty (EVar x) = "var_" <> pretty x

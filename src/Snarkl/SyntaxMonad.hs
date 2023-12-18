@@ -14,9 +14,9 @@ module Snarkl.SyntaxMonad
     -- | Return a fresh input variable.
     fresh_input,
     -- | Return a fresh variable.
-    fresh_var,
+    freshVar,
     -- | Return a fresh location.
-    fresh_loc,
+    freshLoc,
     -- | Basic values
     unit,
     false,
@@ -148,9 +148,9 @@ type ObjMap =
     ObjBind -- maps to result r
 
 data Env = Env
-  { next_var :: Int,
-    next_loc :: Int,
-    input_vars :: [Int],
+  { next_var :: Var,
+    next_loc :: Loc,
+    input_vars :: [Var],
     obj_map :: ObjMap,
     anal_map :: Map.Map Var AnalBind -- supporting simple constprop analyses
   }
@@ -186,8 +186,8 @@ arr len =
             -- (1) a new location (next_loc s)
             -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
             s
-              { next_var = (P.+) (next_var s) len,
-                next_loc = (P.+) (next_loc s) 1,
+              { next_var = incVarBy len (next_var s),
+                next_loc = incLoc (next_loc s),
                 obj_map = new_binds s `Map.union` obj_map s
               }
           )
@@ -197,8 +197,8 @@ arr len =
     new_binds s =
       Map.fromList
         ( zip
-            (zip (repeat (next_loc s)) [0 .. ((P.-) len 1)])
-            (map ObjVar [next_var s .. ((P.+) (next_var s) ((P.-) len 1))])
+            (zip (repeat (next_loc s)) [0 .. (len `subtract` 1)])
+            (map ObjVar [next_var s .. (incVarBy (len `subtract` 1) (next_var s))])
         )
 
 -- Like 'arr', but declare fresh array variables as inputs.
@@ -214,8 +214,8 @@ input_arr len =
             -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
             -- (3) mark new vars. as inputs
             s
-              { next_var = (P.+) (next_var s) len,
-                next_loc = (P.+) (next_loc s) 1,
+              { next_var = incVarBy len (next_var s),
+                next_loc = incLoc (next_loc s),
                 input_vars = new_vars s ++ input_vars s,
                 obj_map = new_binds s `Map.union` obj_map s
               }
@@ -227,7 +227,7 @@ input_arr len =
       Map.fromList
         (zip (zip (repeat (next_loc s)) [0 .. ((P.-) len 1)]) (map ObjVar $ new_vars s))
 
-    new_vars s = [next_var s .. ((P.+) (next_var s) ((P.-) len 1))]
+    new_vars s = [next_var s .. (incVarBy (len `subtract` 1) (next_var s))]
 
 get_addr :: (Loc, Int) -> Comp ty
 get_addr (l, i) =
@@ -311,7 +311,7 @@ set_addr (TEVal (VLoc (TLoc l)), i) (TEVal (VLoc (TLoc l'))) =
 -- Default:
 set_addr (TEVal (VLoc (TLoc l)), i) e =
   do
-    x <- fresh_var
+    x <- freshVar
     _ <- add_objects [((l, i), ObjVar (varOfTExp x))]
     te_assert x e
 
@@ -335,7 +335,7 @@ pair ::
   Comp ('TProd ty1 ty2)
 pair te1 te2 =
   do
-    l <- fresh_loc
+    l <- freshLoc
     _ <- add_binds (locOfTexp l) (lastSeq te1) (lastSeq te2)
     return l
   where
@@ -343,18 +343,18 @@ pair te1 te2 =
       add_objects [((l, 0), ObjLoc l1), ((l, 1), ObjLoc l2)]
     add_binds l (TEVal (VLoc (TLoc l1))) e2 =
       do
-        x2 <- fresh_var
+        x2 <- freshVar
         _ <- add_objects [((l, 0), ObjLoc l1), ((l, 1), ObjVar $ varOfTExp x2)]
         te_assert x2 e2
     add_binds l e1 (TEVal (VLoc (TLoc l2))) =
       do
-        x1 <- fresh_var
+        x1 <- freshVar
         _ <- add_objects [((l, 0), ObjVar $ varOfTExp x1), ((l, 1), ObjLoc l2)]
         te_assert x1 e1
     add_binds l e1 e2 =
       do
-        x1 <- fresh_var
-        x2 <- fresh_var
+        x1 <- freshVar
+        x2 <- freshVar
         _ <-
           add_objects
             [ ((l, 0), ObjVar $ varOfTExp x1),
@@ -389,14 +389,14 @@ debug_state :: State Env (TExp 'TUnit a)
 debug_state =
   State (\s -> Left $ ErrMsg $ show s)
 
-fresh_var :: State Env (TExp ty a)
-fresh_var =
+freshVar :: State Env (TExp ty a)
+freshVar =
   State
     ( \s ->
         Right
           ( TEVar (TVar $ next_var s),
             s
-              { next_var = (P.+) (next_var s) 1
+              { next_var = incVar (next_var s)
               }
           )
     )
@@ -408,20 +408,20 @@ fresh_input =
         Right
           ( TEVar (TVar $ next_var s),
             s
-              { next_var = (P.+) (next_var s) 1,
+              { next_var = incVar (next_var s),
                 input_vars = next_var s : input_vars s
               }
           )
     )
 
-fresh_loc :: State Env (TExp ty a)
-fresh_loc =
+freshLoc :: State Env (TExp ty a)
+freshLoc =
   State
     ( \s ->
         Right
           ( TEVal (VLoc (TLoc $ next_loc s)),
             s
-              { next_loc = (P.+) (next_loc s) 1
+              { next_loc = incLoc (next_loc s)
               }
           )
     )

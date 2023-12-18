@@ -7,9 +7,7 @@ import qualified Data.Map as Map
 import Data.Ratio
 import Prettyprinter
 
-type Var = Int
-
-type Assgn a = IntMap.IntMap a
+type Assgn a = Map.Map Var a
 
 data UnOp = ZEq
   deriving (Eq, Show)
@@ -71,3 +69,11 @@ instance Pretty Rational where
 
 intMapToMap :: IntMap.IntMap v -> Map.Map Int v
 intMapToMap = Map.fromList . IntMap.toList
+
+newtype Var = Var {unVar :: Int} deriving (Eq, Ord, Enum, Show, Pretty)
+
+incVar :: Var -> Var
+incVar (Var x) = Var (x + 1)
+
+incVarBy :: Int -> Var -> Var
+incVarBy n (Var x) = Var (x + n)

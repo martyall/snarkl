@@ -1,6 +1,6 @@
 module Snarkl.Poly where
 
-import qualified Data.IntMap.Lazy as Map
+import qualified Data.Map as Map
 import Snarkl.Common
 import Snarkl.Field
 
@@ -12,7 +12,7 @@ instance (Show a) => Show (Poly a) where
 
 -- | The constant polynomial equal 'c'
 const_poly :: (Field a) => a -> Poly a
-const_poly c = Poly $ Map.insert (-1) c Map.empty
+const_poly c = Poly $ Map.insert (Var (-1)) c Map.empty
 
 -- | The polynomial equal variable 'x'
 var_poly ::
