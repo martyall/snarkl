@@ -12,7 +12,7 @@ instance (Show a) => Show (Poly a) where
 
 -- | The constant polynomial equal 'c'
 const_poly :: (Field a) => a -> Poly a
-const_poly c = Poly $ Map.insert (Var (-1)) c Map.empty
+const_poly c = Poly $ Map.insert (mkVar (-1)) c Map.empty
 
 -- | The polynomial equal variable 'x'
 var_poly ::

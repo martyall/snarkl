@@ -28,7 +28,7 @@ solve ::
   Assgn a
 solve cs env =
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
-      all_vars = Var <$> [0 .. cs_num_vars cs - 1]
+      all_vars = mkVar <$> [0 .. cs_num_vars cs - 1]
       (assgn, cs') = do_simplify True env cs
    in if all_assigned all_vars assgn
         then assgn

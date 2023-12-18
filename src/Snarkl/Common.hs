@@ -1,8 +1,19 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Snarkl.Common where
+module Snarkl.Common
+  ( Assgn,
+    UnOp (..),
+    Op (..),
+    isBoolean,
+    isAssoc,
+    Var,
+    mkVar,
+    unVar,
+    incVar,
+    incVarBy,
+  )
+where
 
-import qualified Data.IntMap.Lazy as IntMap
 import qualified Data.Map as Map
 import Data.Ratio
 import Prettyprinter
@@ -67,10 +78,13 @@ instance Pretty Rational where
     | denominator r == 1 = pretty (numerator r)
     | otherwise = pretty (numerator r) <> "/" <> pretty (denominator r)
 
-intMapToMap :: IntMap.IntMap v -> Map.Map Int v
-intMapToMap = Map.fromList . IntMap.toList
+newtype Var = Var Int deriving (Eq, Ord, Enum, Show, Pretty)
 
-newtype Var = Var {unVar :: Int} deriving (Eq, Ord, Enum, Show, Pretty)
+mkVar :: Int -> Var
+mkVar = Var
+
+unVar :: Var -> Int
+unVar (Var x) = x
 
 incVar :: Var -> Var
 incVar (Var x) = Var (x + 1)

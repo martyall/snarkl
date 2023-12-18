@@ -14,7 +14,7 @@ import Snarkl.Constraints
 
 number_constraints :: ConstraintSystem a -> Map Var (Constraint a)
 number_constraints cs =
-  go (Var 0) Map.empty (Set.toList $ cs_constraints cs)
+  go (mkVar 0) Map.empty (Set.toList $ cs_constraints cs)
   where
     go ::
       Var ->

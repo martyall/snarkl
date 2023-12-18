@@ -135,7 +135,7 @@ texp_of_comp mf =
   case run mf of
     Left err -> failWith err
     Right (e, rho) ->
-      let Var nv = next_var rho
+      let nv = unVar $ next_var rho
           in_vars = sort $ input_vars rho
        in TExpPkg nv in_vars e
   where
@@ -144,8 +144,8 @@ texp_of_comp mf =
       runState
         mf0
         ( Env
-            (Var $ fromInteger 0)
-            (Loc $ Var $ fromInteger 0)
+            (mkVar $ fromInteger 0)
+            (Loc $ mkVar $ fromInteger 0)
             []
             Map.empty
             Map.empty
@@ -162,7 +162,7 @@ constrs_of_texp ::
   (Typeable ty) =>
   TExpPkg ty ->
   ConstraintSystem Rational
-constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp (Var out) in_vars e
+constrs_of_texp (TExpPkg out in_vars e) = constraints_of_texp (mkVar out) in_vars e
 
 -- | Snarkl.Compile Snarkl computations to constraint systems.
 constrs_of_comp ::

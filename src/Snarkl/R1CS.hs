@@ -48,7 +48,7 @@ sat_r1c w c
   where
     inner :: (Field a) => Poly a -> Assgn a -> a
     inner (Poly v) w' =
-      let c0 = Map.findWithDefault zero (Var (-1)) v
+      let c0 = Map.findWithDefault zero (mkVar (-1)) v
        in Map.foldlWithKey (f w') c0 v
 
     f w' acc v_key v_val =

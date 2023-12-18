@@ -40,7 +40,7 @@ data CEnv a = CEnv
 freshVar :: State (CEnv a) Var
 freshVar = do
   env <- get
-  _ <- put $ env {next_var = Var (unVar (next_var env) + 1)}
+  _ <- put $ env {next_var = incVar (next_var env)}
   return $ next_var env
 
 add_constraint :: (Ord a) => Constraint a -> State (CEnv a) ()
