@@ -1,14 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# HLINT ignore "Use uncurry" #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module Test.UnionFindSpec where
 
-import Snarkl.Common
 import Snarkl.Errors
 import Snarkl.UnionFind
 import Test.Hspec
@@ -19,12 +16,12 @@ spec = do
   describe "UnionFind Algorithm" $ do
     it "finds the root of a single element correctly" $
       property $
-        \x -> root (unite empty x x :: UnionFind Var Int) x `shouldBe` (x, unite empty x x)
+        \x -> root (unite empty x x :: UnionFind Int Int) x `shouldBe` (x, unite empty x x)
 
     it "unifies two elements correctly" $
       property $
         forAll (arbitrary `suchThat` \(x, y) -> x < y) $ \(x, y) ->
-          let uf :: UnionFind Var Int
+          let uf :: UnionFind Int Int
               uf = unite empty x y
               rx = fst $ root uf x
               ry = fst $ root uf y
@@ -33,7 +30,7 @@ spec = do
     it "unifies 3 elements correctly" $
       property $
         forAll (arbitrary `suchThat` \(x, y, z) -> x < y && y < z) $ \(x, y, z) ->
-          let uf :: UnionFind Var String
+          let uf :: UnionFind Int String
               uf = insert z "X" (insert y "X" (insert x "X" empty))
               uf' = unite uf x y
            in do
